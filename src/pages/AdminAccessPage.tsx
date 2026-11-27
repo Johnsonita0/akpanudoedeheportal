@@ -29,6 +29,12 @@ export default function AdminAccessPage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!loading && session?.user.app_metadata.role === 'admin') {
+      window.location.replace('/dashboard')
+    }
+  }, [loading, session])
+
   const hasAdminRole = session?.user.app_metadata.role === 'admin'
 
   const signIn = async (event: FormEvent<HTMLFormElement>) => {
@@ -79,11 +85,7 @@ export default function AdminAccessPage() {
           ) : loading ? (
             <p role="status">Checking your secure session...</p>
           ) : hasAdminRole ? (
-            <>
-              <p role="status">Your administrator session is verified.</p>
-              <a className="admin-access-dashboard-link" href="/dashboard">Open admin dashboard</a>
-              <button className="admin-access-submit" type="button" onClick={() => void signOut()}>Sign out</button>
-            </>
+            <p role="status">Your administrator session is verified. Opening the dashboard...</p>
           ) : session ? (
             <>
               <p role="alert">This account is not authorized for administrator access.</p>
