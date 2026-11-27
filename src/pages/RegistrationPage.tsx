@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { apiUrl } from '../api'
 import { campaignName, wards } from '../campaignData'
 import adcLogo from '../assets/adc-logo-from-campaign-poster.png'
 import stateEmblem from '../assets/akwa-ibom-state-emblem.png'
@@ -17,6 +18,10 @@ type Registration = {
   support_group_id: string
   polling_unit: string
   vin: string
+  voterFirstName: string
+  voterLastName: string
+  dateOfBirth: string
+  qoreIdConsent: boolean
   consent: boolean | null
 }
 
@@ -59,6 +64,10 @@ export default function RegistrationPage() {
     support_group_id: '',
     polling_unit: '',
     vin: '',
+    voterFirstName: '',
+    voterLastName: '',
+    dateOfBirth: '',
+    qoreIdConsent: false,
     consent: null,
   })
   const [groupAccount, setGroupAccount] = useState<GroupAccount>({
@@ -122,22 +131,41 @@ export default function RegistrationPage() {
 
     setSubmitting(true)
     setMessage('')
-    const registrationData = {
-      ...registration,
-      full_name: registration.full_name.trim(),
-      phone: registration.phone.trim(),
-      email: registration.email.trim(),
-      polling_unit: registration.polling_unit.trim(),
-      support_group_id: registration.support_group_id ? Number(registration.support_group_id) : null,
-    }
-
     try {
-      const { error } = await supabase.rpc('register_individual', { registration_data: registrationData })
-      if (error) throw error
-      setMessage('Registration received. Your VIN will remain pending until an authorised verification service is configured.')
+      const response = await fetch(`${apiUrl}/api/registrations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          registration: {
+            full_name: registration.full_name.trim(),
+            phone: registration.phone.trim(),
+            email: registration.email.trim(),
+            lga: registration.lga,
+            ward: registration.ward,
+            support_group_id: registration.support_group_id ? Number(registration.support_group_id) : null,
+            polling_unit: registration.polling_unit.trim(),
+            vin: registration.vin.trim(),
+            consent: registration.consent === true,
+          },
+          verification: {
+            consent: registration.qoreIdConsent,
+            first_name: registration.voterFirstName.trim(),
+            last_name: registration.voterLastName.trim(),
+            date_of_birth: registration.dateOfBirth,
+          },
+        }),
+      })
+      const result: unknown = await response.json()
+      const responseBody = result && typeof result === 'object' && !Array.isArray(result)
+        ? result as Record<string, unknown>
+        : {}
+      if (!response.ok) {
+        throw new Error(typeof responseBody.error === 'string' ? responseBody.error : 'Registration could not be submitted. Please try again later.')
+      }
+      setMessage(typeof responseBody.message === 'string' ? responseBody.message : 'Registration received.')
     } catch (error) {
       console.error('Could not submit individual registration:', error)
-      setMessage('Registration could not be submitted. Please check your details and try again later.')
+      setMessage(error instanceof Error ? error.message : 'Registration could not be submitted. Please check your details and try again later.')
     } finally {
       setSubmitting(false)
     }
@@ -168,7 +196,7 @@ export default function RegistrationPage() {
             coordinator_name: groupAccount.coordinatorName.trim(),
             coordinator_phone: groupAccount.phone.trim(),
             group_consent: true,
-            consent_notice_version: '2026-11-27',
+            consent_notice_version: '2026-11-27-v2',
           },
         },
       })
@@ -228,20 +256,26 @@ export default function RegistrationPage() {
                 {step === 0 && <div className="registration-fields">
                   <label className="span-two">Full name *<input required name="full_name" autoComplete="name" value={registration.full_name} onChange={(event) => setRegistration({ ...registration, full_name: event.target.value })} placeholder="Enter your full name" /></label>
                   <label>Phone number *<input required name="phone" type="tel" autoComplete="tel" value={registration.phone} onChange={(event) => setRegistration({ ...registration, phone: event.target.value })} placeholder="+234" /></label>
-                  <label>Email <span className="field-note">(optional)</span><input name="email" type="email" autoComplete="email" value={registration.email} onChange={(event) => setRegistration({ ...registration, email: event.target.value })} placeholder="you@example.com" /></label>
+                  <label><span className="field-label">Email <span className="field-note">(optional)</span></span><input name="email" type="email" autoComplete="email" value={registration.email} onChange={(event) => setRegistration({ ...registration, email: event.target.value })} placeholder="you@example.com" /></label>
                 </div>}
                 {step === 1 && <div className="registration-fields">
                   <label>Local Government Area *<SearchableLgaSelect required name="lga" value={registration.lga} onChange={(lga) => setRegistration({ ...registration, lga, ward: '' })} /></label>
                   <label>Ward *<select required name="ward" value={registration.ward} onChange={(event) => setRegistration({ ...registration, ward: event.target.value })} disabled={!registration.lga}><option value="">{registration.lga ? 'Select ward' : 'Select an LGA first'}</option>{wards.map((item) => <option key={item}>{item}</option>)}</select></label>
-                  <label className="span-two">Support group <span className="field-note">(optional)</span><select name="support_group_id" value={registration.support_group_id} onChange={(event) => setRegistration({ ...registration, support_group_id: event.target.value })}><option value="">Register without a group</option>{supportGroups.map((group) => <option key={group.id} value={group.id}>{group.name} — {group.lga}</option>)}</select></label>
+                  <label className="span-two"><span className="field-label">Support group <span className="field-note">(optional)</span></span><select name="support_group_id" value={registration.support_group_id} onChange={(event) => setRegistration({ ...registration, support_group_id: event.target.value })}><option value="">Register without a group</option>{supportGroups.map((group) => <option key={group.id} value={group.id}>{group.name} — {group.lga}</option>)}</select></label>
                   {groupsMessage && <p className="registration-hint span-two" role="status">{groupsMessage}</p>}
-                  <label className="span-two">Polling unit <span className="field-note">(optional)</span><input name="polling_unit" value={registration.polling_unit} onChange={(event) => setRegistration({ ...registration, polling_unit: event.target.value })} placeholder="Polling unit or nearby landmark" /></label>
+                  <label className="span-two"><span className="field-label">Polling unit <span className="field-note">(optional)</span></span><input name="polling_unit" value={registration.polling_unit} onChange={(event) => setRegistration({ ...registration, polling_unit: event.target.value })} placeholder="Polling unit or nearby landmark" /></label>
                   <p className="registration-hint span-two">Ward names shown are illustrative. Please confirm your ward with your local election authority.</p>
                 </div>}
-                {step === 2 && <div className="registration-fields">
-                  <div className="privacy-callout span-two"><span>i</span><p>Your VIN is collected for campaign registration and is not shown to group coordinators. You can independently check your voter details on the official <a href="https://cvr.inecnigeria.org/vvs" target="_blank" rel="noreferrer">INEC Voter Verification Service</a>. This form does not send your information to INEC; automatic verification is unavailable because no authorised API is configured.</p></div>
-                  <label className="span-two">Voter identification number (VIN) *<input required name="vin" autoComplete="off" value={registration.vin} onChange={(event) => setRegistration({ ...registration, vin: event.target.value })} placeholder="Enter the number on your voter's card" /></label>
-                </div>}
+                {step === 2 && <>
+                  <div className="registration-fields">
+                    <div className="privacy-callout span-two"><span>i</span><p>Your VIN is not shown to group coordinators. If you opt in below, your VIN, the first and last names on your voter card, and your date of birth will be sent securely to QoreID for a match check. Your date of birth and returned card details are used only for that check and are not saved. Without opt-in, or while verification is unavailable, you can still register with VIN status pending. You can also check your details directly on the official <a href="https://cvr.inecnigeria.org/vvs" target="_blank" rel="noreferrer">INEC Voter Verification Service</a>.</p></div>
+                    <label>First name on voter card<input required={registration.qoreIdConsent} name="voter_first_name" autoComplete="given-name" maxLength={120} value={registration.voterFirstName} onChange={(event) => setRegistration({ ...registration, voterFirstName: event.target.value })} /></label>
+                    <label>Last name on voter card<input required={registration.qoreIdConsent} name="voter_last_name" autoComplete="family-name" maxLength={120} value={registration.voterLastName} onChange={(event) => setRegistration({ ...registration, voterLastName: event.target.value })} /></label>
+                    <label>Date of birth on voter card<input required={registration.qoreIdConsent} name="date_of_birth" type="date" autoComplete="bday" max={new Date().toISOString().slice(0, 10)} value={registration.dateOfBirth} onChange={(event) => setRegistration({ ...registration, dateOfBirth: event.target.value })} /></label>
+                    <label className="span-two">Voter identification number (VIN) *<input required name="vin" autoComplete="off" minLength={5} maxLength={40} pattern="[A-Za-z0-9 -]{5,40}" value={registration.vin} onChange={(event) => setRegistration({ ...registration, vin: event.target.value })} placeholder="Enter the number on your voter's card" /></label>
+                  </div>
+                  <label className="consent-check"><input type="checkbox" checked={registration.qoreIdConsent} onChange={(event) => setRegistration({ ...registration, qoreIdConsent: event.target.checked })} /><span>I consent to sending these voter-card details to QoreID for verification. This is optional; if I do not opt in, my registration can still be submitted with VIN status pending.</span></label>
+                </>}
                 {step === 3 && <div className="consent-panel">
                   <div className="privacy-callout"><span>i</span><p>Registration is voluntary. Read the <a href="/privacy" target="_blank" rel="noreferrer">privacy notice</a> for what is collected, how the campaign uses it, who can see it, and how to make a data request.</p></div>
                   <fieldset className="consent-options">
@@ -251,7 +285,7 @@ export default function RegistrationPage() {
                   </fieldset>
                   <p className="registration-hint">If you do not agree, the form will not submit. You can withdraw consent later by contacting the campaign.</p>
                 </div>}
-                {message && <p className={`registration-message ${message.toLowerCase().includes('could not') || message.toLowerCase().includes('failed') || message.toLowerCase().includes('unavailable') || message.toLowerCase().includes('must agree') ? 'error' : ''}`} role="status">{message}</p>}
+                {message && <p className={`registration-message ${message.toLowerCase().includes('could not') || message.toLowerCase().includes('failed') || message.toLowerCase().includes('unavailable') || message.toLowerCase().includes('must agree') || message.toLowerCase().includes('did not match') || message.toLowerCase().includes('check the required') ? 'error' : ''}`} role="status">{message}</p>}
                 <div className="registration-actions">{step > 0 && <button className="button button-text" type="button" onClick={() => { setMessage(''); setStep((current) => current - 1) }}>Back</button>}{step < steps.length - 1 ? <button className="button button-primary" type="submit">Continue</button> : <button className="button button-primary" type="submit" disabled={submitting}>{submitting ? 'Submitting…' : 'Submit registration'}</button>}</div>
               </section>
             </form>

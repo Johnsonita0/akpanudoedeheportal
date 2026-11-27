@@ -164,9 +164,9 @@
 html:not(.aos-enabled) [data-aos] { opacity: 1 !important; transform: none !important; transition: none !important; }
 @media(max-width:650px) {
   .public-site { padding-top: 64px; }
-  .site-header { position: fixed; top: 0; right: 0; left: 0; z-index: 30; width: auto; gap: 8px; padding: 0 12px; }
-  .site-brand { min-width: 0; flex: 1 1 auto; overflow: hidden; }
+  .site-header { position: fixed; top: 0; right: 0; left: 0; z-index: 30; display: grid; grid-template-columns: minmax(0,1fr) auto; width: 100%; gap: 12px; padding: 0 12px; }
+  .site-brand { min-width: 0; overflow: hidden; }
   .site-brand > span:last-child { min-width: 0; }
   .site-brand strong,.site-brand small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .header-join { flex: 0 0 auto; max-width: 40vw; padding: 0 8px; font-size: clamp(8px,2.5vw,9px); }
+  .header-join { justify-self: end; max-width: 40vw; padding: 0 8px; font-size: clamp(8px,2.5vw,9px); }
 }

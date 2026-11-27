@@ -58,10 +58,32 @@
 .group-member-consent { display:grid; gap:10px; margin:0; padding:0; border:0; }
 .group-member-consent legend { margin-bottom:8px; color:var(--ink); font-size:10px; font-weight:700; }
 .group-member-consent label { display:grid; grid-template-columns:17px 1fr; gap:9px; align-items:start; color:#505950; font-size:10px; line-height:1.6; }
+.group-member-consent a { color:var(--teal); }
 .group-member-consent input { width:16px; height:16px; min-height:16px; margin:1px 0 0; accent-color:var(--teal); }
 .group-member-list { border-top:1px solid var(--line); }
-.group-member-row { display:grid; grid-template-columns:1.1fr 1fr 1fr 1fr; gap:12px; padding:14px 0; border-bottom:1px solid var(--line); color:#576057; font-size:10px; line-height:1.5; }
+.group-member-row { width:100%; display:grid; grid-template-columns:1.15fr .8fr 1fr .9fr .8fr; align-items:center; gap:12px; padding:14px 0; border:0; border-bottom:1px solid var(--line); background:transparent; color:#576057; font:inherit; font-size:10px; line-height:1.5; text-align:left; cursor:pointer; }
+.group-member-row:hover,.group-member-row:focus-visible { background:#f3f6f1; }
+.group-member-row:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
+.group-member-row:disabled { cursor:wait; opacity:.7; }
 .group-member-row strong { color:var(--ink); }
+.group-member-open { color:var(--teal); font-weight:700; }
+.group-detail-back { margin:0 0 20px; padding:0; border:0; background:none; color:var(--teal); font:inherit; font-size:11px; font-weight:700; cursor:pointer; }
+.group-member-detail-card { display:grid; grid-template-columns:minmax(210px,280px) minmax(0,1fr); gap:30px; align-items:start; }
+.group-member-detail-profile { text-align:center; }
+.group-member-detail-profile img,.group-member-detail-profile>span { width:100%; aspect-ratio:4/4.7; display:grid; place-items:center; border-radius:6px; background:#e9eee8; color:var(--teal); object-fit:cover; font:400 56px Georgia,serif; }
+.group-member-detail-profile h2 { margin:16px 0 5px; font:400 23px/1.2 Georgia,serif; }
+.group-member-detail-profile p { margin:0 0 7px; color:var(--muted); font-size:11px; }
+.group-member-detail-profile small { color:var(--muted); font-size:9px; }
+.group-member-detail-content>.eyebrow { color:var(--teal); font-size:9px; font-weight:750; letter-spacing:1.4px; }
+.group-member-detail-content>h2 { margin:8px 0 22px; font:400 25px/1.15 Georgia,serif; }
+.group-member-detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 24px; }
+.group-member-detail-field { min-width:0; padding:12px 0; border-bottom:1px solid var(--line); }
+.group-member-detail-field>span,.group-member-detail-field>strong { display:block; }
+.group-member-detail-field>span { margin-bottom:5px; color:var(--muted); font-size:9px; }
+.group-member-detail-field>strong { overflow-wrap:anywhere; color:var(--ink); font-size:11px; font-weight:600; line-height:1.5; }
+.group-member-sensitive-note { margin:18px 0 0; padding:12px; border:1px solid #e8dfc8; border-radius:4px; background:#fff9e9; color:#68532a !important; font-size:10px !important; }
+.group-member-photo-field { grid-column:1/-1; }
+.group-member-photo-field input { padding:8px; }
 .group-empty-state { padding:14px; border:1px dashed #d4d8cf; color:var(--muted); font-size:11px; }
 .group-message { margin:14px 0; padding:11px 13px; border-radius:4px; background:#eff5ef; color:#315d3b; font-size:10px; line-height:1.5; }
 .group-dashboard-privacy { text-align:right; }
@@ -78,6 +100,10 @@
   .group-image-controls { grid-template-columns:1fr; gap:8px; }
   .group-member-form { grid-template-columns:1fr; }
   .group-member-form>.group-member-consent,.group-member-form>.button { grid-column:auto; }
-  .group-member-row { grid-template-columns:1fr 1fr; }
+  .group-member-row { grid-template-columns:1fr 1fr; gap:8px; }
+  .group-member-detail-card { grid-template-columns:1fr; gap:20px; }
+  .group-member-detail-profile { max-width:240px; margin:0 auto; }
+  .group-member-detail-grid { grid-template-columns:1fr; }
+  .group-member-photo-field { grid-column:auto; }
   .group-dashboard-privacy { text-align:left; }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import AOS from 'aos'
 import 'aos/dist/aos.css'
+import { apiUrl } from '../api'
 import { candidateName, campaignName } from '../campaignData'
 import adcLogo from '../assets/adc-logo-from-campaign-poster.png'
 import campaignMomentOne from '../assets/campaign-moment-1.webp'
@@ -33,7 +34,6 @@ const entranceEffects = {
   supportGroups: randomAosEffect(),
 }
 let aosInitialized = false
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000'
 
 type PublicSupportGroup = {
   id: number
@@ -524,28 +524,29 @@ function PrivacyPage() {
         <p>The campaign team operating the Akpanudoedehe for Akwa Ibom website is responsible for personal information submitted through this site. To ask about your information, withdraw consent, or request access, correction or deletion, use the <a href="/contact">contact form</a> and select “Privacy or data rights request.” Do not include your VIN, password or other sensitive information in a message.</p>
 
         <h2>Information we collect</h2>
-        <p>Depending on how you register, we may collect your name, phone number, optional email, Local Government Area, ward, optional polling-unit details, support-group membership, and voter identification number (VIN). A support-group coordinator account also uses the coordinator’s email and password through the sign-in provider, along with the group name, location and coordinator contact details. Group coordinators may enter member details only after each member has agreed to provide them.</p>
+        <p>Depending on how you register, we may collect your name, phone number, optional email, Local Government Area, ward, polling-unit details, support-group membership and voter identification number (VIN). Group-member records also include a member photo, National Identification Number (NIN), account name, account number, bank name, residential address and polling-unit address. A coordinator may submit these details only after the member has agreed to provide them. If you separately opt in to QoreID checking your voter card during individual registration, the first and last names and date of birth shown on that card are sent with your VIN to QoreID for that check only. The date of birth and returned card details are not stored by the campaign; only the verification status is retained. A support-group coordinator account also uses the coordinator’s email and password through the sign-in provider, along with the group name, location and coordinator contact details.</p>
         <p>Support-group membership may reveal a person’s political participation. Registration is voluntary, and choosing not to register does not prevent access to public campaign information.</p>
 
         <h2>How information is used</h2>
         <ul>
           <li>To record voluntary individual and support-group registrations and manage group membership.</li>
+          <li>To maintain group member records and accurate membership counts for campaign administration.</li>
           <li>To contact people about campaign participation, community activities and registration matters.</li>
           <li>To display approved support-group names, locations, logos and photos, and a count of members who have registered with that group.</li>
-          <li>To verify a VIN only if an authorised verification service is configured and the required safeguards are in place. No external VIN-verification provider is currently configured; VIN status therefore remains pending.</li>
+          <li>To check voter-card details with QoreID only when the service is configured and you separately opt in. If the service is unavailable or you do not opt in, your registration can still be submitted with VIN status pending.</li>
           <li>To respond to privacy requests and meet applicable legal obligations.</li>
         </ul>
 
         <h2>Who can see information</h2>
-        <p>Authorised campaign administrators can access registration records for campaign operations. A support-group coordinator can access the member list for that coordinator’s own group, including member names, contact details, location and verification status. Coordinators cannot view members’ full VINs or account passwords. A group profile and its uploaded logo or photo become public only after campaign review and approval. The site does not sell personal information.</p>
-        <p>Website hosting, authentication, database and file-storage services are provided by Vercel and Supabase. They process information to operate the service under their respective terms and security controls. We do not send VINs to an external verification provider at this time.</p>
+        <p>A support-group coordinator can access member details only for that coordinator’s own group. The dashboard masks NIN and account numbers and never displays a member’s full VIN; member photos are stored privately and are not part of the public group profile. A group profile and its group logo or cover photo become public only after campaign review and approval. The site does not sell personal information.</p>
+        <p>Website hosting, authentication, database and file-storage services are provided by Vercel and Supabase. They process information to operate the service under their respective terms and security controls. If you opt in and the verification service is configured, QoreID receives your VIN, voter-card first and last names, and date of birth to perform the match check. Returned card details are not retained by the campaign.</p>
 
         <h2>Consent and group registrations</h2>
         <p>Individual registration requires an affirmative choice to agree to this notice and the stated campaign uses. If you do not agree, the individual form will not submit. You may withdraw consent by making a privacy request; this does not affect processing that already occurred or information that must be retained by law.</p>
-        <p>A coordinator submitting a member’s details must first obtain that member’s permission and confirm this on the form. Coordinators must not submit another person’s VIN or contact details without permission. Group login credentials belong to the designated coordinator and should not be shared. The campaign will never display a member’s full VIN in the group dashboard.</p>
+        <p>A coordinator submitting a member’s details must first obtain that member’s permission and confirm this on the form. This includes the member photo, VIN, NIN, bank details and addresses. Coordinators must not submit another person’s information without permission. Group login credentials belong to the designated coordinator and should not be shared. The campaign will never display a member’s full VIN in the group dashboard.</p>
 
         <h2>Storage, security and retention</h2>
-        <p>Information is transmitted over HTTPS and stored using the campaign’s Supabase database and authentication services. Access is restricted by account and group permissions. VINs are kept separately from the group member list and are not readable by coordinators. No system can guarantee absolute security; please do not send VINs or passwords through the contact form or share your account credentials.</p>
+        <p>Information is transmitted over HTTPS and stored using the campaign’s Supabase database and authentication services. Access is restricted by account and group permissions. VINs are kept separately from the member directory. NIN and bank account numbers are kept in a restricted table and returned to the dashboard only in masked form; member photos are stored in a private bucket with group-specific access. A date of birth entered for the optional QoreID check is sent only for that request and is not saved. No system can guarantee absolute security; please do not send VINs or passwords through the contact form or share your account credentials.</p>
         <p>There is no fixed automatic deletion date at present. Information is retained while needed to administer campaign registrations and groups, and longer only where required for legal obligations or resolving a dispute. You may request deletion; requests are assessed against applicable legal and record-keeping requirements. The campaign should review retained data periodically and delete information it no longer needs.</p>
 
         <h2>Your choices and data requests</h2>
