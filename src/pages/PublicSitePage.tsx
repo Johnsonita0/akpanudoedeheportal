@@ -41,6 +41,8 @@ type PublicSupportGroup = {
   lga: string
   logoUrl: string
   photoUrl: string
+  logoScale: number
+  photoScale: number
   membershipNumber: number
 }
 
@@ -60,6 +62,8 @@ function isPublicSupportGroup(value: unknown): value is PublicSupportGroup {
     typeof group.lga === 'string' &&
     isSecureImageUrl(group.logoUrl) &&
     isSecureImageUrl(group.photoUrl) &&
+    typeof group.logoScale === 'number' && group.logoScale >= 1 && group.logoScale <= 2.5 &&
+    typeof group.photoScale === 'number' && group.photoScale >= 1 && group.photoScale <= 2.5 &&
     Number.isSafeInteger(group.membershipNumber) &&
     Number(group.membershipNumber) >= 0
 }
@@ -415,8 +419,8 @@ function SupportGroupsPreview() {
           <div className="support-groups-carousel" role="region" aria-label="Registered support groups" aria-roledescription="carousel">
             <article className="support-group-card" aria-live="polite">
               <div className="support-group-photo">
-                <img src={activeGroup.photoUrl} alt={`${activeGroup.name} members`} loading="lazy" />
-                <img className="support-group-logo" src={activeGroup.logoUrl} alt={`${activeGroup.name} logo`} loading="lazy" />
+                <img src={activeGroup.photoUrl} alt={`${activeGroup.name} members`} loading="lazy" style={{ transform: `scale(${activeGroup.photoScale})` }} />
+                <img className="support-group-logo" src={activeGroup.logoUrl} alt={`${activeGroup.name} logo`} loading="lazy" style={{ transform: `scale(${activeGroup.logoScale})` }} />
               </div>
               <div className="support-group-copy">
                 <span>REGISTERED SUPPORT GROUP</span>
@@ -501,13 +505,57 @@ function ContactPage() {
   return (
     <main className="inner-page">
       <div className="inner-hero compact-hero"><span className="eyebrow">YOUR VOICE MATTERS</span><h1>Let's start<br /><em>a conversation.</em></h1><p>Share a question, suggestion or community concern with the campaign.</p></div>
-      <section className="contact-layout inner-content" data-aos={entranceEffects.contact}><form className="contact-form" onSubmit={submit}><label>Full name<input required name="name" placeholder="Your name" /></label><label>Phone number<input required name="phone" type="tel" placeholder="+234" /></label><label>Topic<select name="topic"><option>General enquiry</option><option>Suggestion</option><option>Community concern</option></select></label><label>Message<textarea required name="message" rows={5} placeholder="How can we help" /></label>{status && <p className={`form-message ${status.includes('received') ? 'success' : ''}`} role="status">{status}</p>}<button className="button button-primary" type="submit" disabled={submitting}>{submitting ? 'Sending…' : 'Send enquiry'}</button></form><aside className="contact-aside"><span className="section-kicker">GET IN TOUCH</span><h2>We want to<br /><em>hear from you.</em></h2><p>Use this form to share a general enquiry, an idea or a concern affecting your community.</p><div className="contact-rule" /><span className="section-kicker">FOLLOW THE CAMPAIGN</span><p>Official social media links will be added when confirmed.</p></aside></section>
+      <section className="contact-layout inner-content" data-aos={entranceEffects.contact}><form className="contact-form" onSubmit={submit}><label>Full name<input required name="name" placeholder="Your name" /></label><label>Phone number<input required name="phone" type="tel" placeholder="+234" /></label><label>Topic<select name="topic"><option>General enquiry</option><option>Suggestion</option><option>Community concern</option><option>Privacy or data rights request</option></select></label><label>Message<textarea required name="message" rows={5} placeholder="How can we help? Do not include your VIN or password." /></label>{status && <p className={`form-message ${status.includes('received') ? 'success' : ''}`} role="status">{status}</p>}<button className="button button-primary" type="submit" disabled={submitting}>{submitting ? 'Sending…' : 'Send enquiry'}</button></form><aside className="contact-aside"><span className="section-kicker">GET IN TOUCH</span><h2>We want to<br /><em>hear from you.</em></h2><p>Use this form to share a general enquiry, an idea, a community concern or a privacy/data-rights request. Never send a VIN or password in a message.</p><div className="contact-rule" /><span className="section-kicker">FOLLOW THE CAMPAIGN</span><p>Official social media links will be added when confirmed.</p></aside></section>
     </main>
   )
 }
 
 function PrivacyPage() {
-  return <main className="inner-page"><div className="inner-hero compact-hero"><span className="eyebrow">YOUR INFORMATION</span><h1>Privacy &amp;<br /><em>participation.</em></h1><p>Supporter registration is voluntary, and campaign information is collected only for participation and administration.</p></div><section className="inner-content privacy-copy" data-aos={entranceEffects.privacy}><h2>Privacy by design</h2><p>When the campaign database is configured, submitted registration and enquiry details are stored securely for campaign administration. The public website does not provide direct access to private records.</p><p>Voter identification details are sensitive personal information. VINs are stored with registration records for future verification; no third-party verification provider is configured in this preview, so submitted registrations remain pending.</p><p>Before launch, the campaign must approve its privacy notice, data retention rules and authorised verification provider.</p></section></main>
+  return (
+    <main className="inner-page">
+      <div className="inner-hero compact-hero">
+        <span className="eyebrow">DATA COLLECTION &amp; PRIVACY NOTICE</span>
+        <h1>Your information.<br /><em>Your choice.</em></h1>
+        <p>Registration is voluntary. This notice explains what the Akpanudoedehe for Akwa Ibom campaign collects, why it is used, and how to make a privacy request.</p>
+      </div>
+      <section className="inner-content privacy-copy" data-aos={entranceEffects.privacy}>
+        <p className="privacy-updated"><strong>Effective date:</strong> 27 November 2026</p>
+        <h2>Who is responsible</h2>
+        <p>The campaign team operating the Akpanudoedehe for Akwa Ibom website is responsible for personal information submitted through this site. To ask about your information, withdraw consent, or request access, correction or deletion, use the <a href="/contact">contact form</a> and select “Privacy or data rights request.” Do not include your VIN, password or other sensitive information in a message.</p>
+
+        <h2>Information we collect</h2>
+        <p>Depending on how you register, we may collect your name, phone number, optional email and date of birth, Local Government Area, ward, optional polling-unit details, support-group membership, and voter identification number (VIN). A support-group coordinator account also uses the coordinator’s email and password through the sign-in provider, along with the group name, location and coordinator contact details. Group coordinators may enter member details only after each member has agreed to provide them.</p>
+        <p>Support-group membership may reveal a person’s political participation. Registration is voluntary, and choosing not to register does not prevent access to public campaign information.</p>
+
+        <h2>How information is used</h2>
+        <ul>
+          <li>To record voluntary individual and support-group registrations and manage group membership.</li>
+          <li>To contact people about campaign participation, community activities and registration matters.</li>
+          <li>To display approved support-group names, locations, logos and photos, and a count of members who have registered with that group.</li>
+          <li>To verify a VIN only if an authorised verification service is configured and the required safeguards are in place. No external VIN-verification provider is currently configured; VIN status therefore remains pending.</li>
+          <li>To respond to privacy requests and meet applicable legal obligations.</li>
+        </ul>
+
+        <h2>Who can see information</h2>
+        <p>Authorised campaign administrators can access registration records for campaign operations. A support-group coordinator can access the member list for that coordinator’s own group, including member names, contact details, location and verification status. Coordinators cannot view members’ full VINs or account passwords. A group profile and its uploaded logo or photo become public only after campaign review and approval. The site does not sell personal information.</p>
+        <p>Website hosting, authentication, database and file-storage services are provided by Vercel and Supabase. They process information to operate the service under their respective terms and security controls. We do not send VINs to an external verification provider at this time.</p>
+
+        <h2>Consent and group registrations</h2>
+        <p>Individual registration requires an affirmative choice to agree to this notice and the stated campaign uses. If you do not agree, the individual form will not submit. You may withdraw consent by making a privacy request; this does not affect processing that already occurred or information that must be retained by law.</p>
+        <p>A coordinator submitting a member’s details must first obtain that member’s permission and confirm this on the form. Coordinators must not submit another person’s VIN or contact details without permission. Group login credentials belong to the designated coordinator and should not be shared. The campaign will never display a member’s full VIN in the group dashboard.</p>
+
+        <h2>Storage, security and retention</h2>
+        <p>Information is transmitted over HTTPS and stored using the campaign’s Supabase database and authentication services. Access is restricted by account and group permissions. VINs are kept separately from the group member list and are not readable by coordinators. No system can guarantee absolute security; please do not send VINs or passwords through the contact form or share your account credentials.</p>
+        <p>There is no fixed automatic deletion date at present. Information is retained while needed to administer campaign registrations and groups, and longer only where required for legal obligations or resolving a dispute. You may request deletion; requests are assessed against applicable legal and record-keeping requirements. The campaign should review retained data periodically and delete information it no longer needs.</p>
+
+        <h2>Your choices and data requests</h2>
+        <p>Subject to applicable law, you may ask to access or correct your information, request deletion, withdraw consent, or raise a concern about how information is used. Use the <a href="/contact">privacy/data-rights contact form</a>. We may need to verify your identity before acting on a request. Do not put your VIN or password in the request.</p>
+
+        <h2>Changes to this notice</h2>
+        <p>We will update this page when registration fields, group access, verification providers or data practices change. Please review this notice before submitting a registration. This notice describes the current service and is not a promise that a verification service or other feature is active when it is not.</p>
+      </section>
+    </main>
+  )
 }
 
 export default function PublicSitePage({ path }: { path: string }) {

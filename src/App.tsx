@@ -3,6 +3,7 @@ import AdminAccessPage from './pages/AdminAccessPage'
 import PublicSitePage from './pages/PublicSitePage'
 import RegistrationPage from './pages/RegistrationPage'
 import SupporterPortalPage from './pages/SupporterPortalPage'
+import SupportGroupDashboardPage from './pages/SupportGroupDashboardPage'
 
 function AdminRouteRedirect() {
   useEffect(() => {
@@ -16,6 +17,7 @@ export default function App() {
   const path = window.location.pathname.replace(/\/+$/, '') || '/'
 
   if (path === '/register') return <RegistrationPage />
+  if (path === '/group-dashboard') return <SupportGroupDashboardPage />
   if (path === '/portal') return <SupporterPortalPage />
   if (path === '/admin' || path.startsWith('/admin/')) return <AdminAccessPage />
   if (path === '/coordinator' || path.startsWith('/dashboard') || /^\/members\/[^/]+$/.test(path)) {
