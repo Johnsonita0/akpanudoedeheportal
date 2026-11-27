@@ -154,3 +154,7 @@
   .support-group-membership { margin-top: 20px; padding-top: 14px; }
 }
 html:not(.aos-enabled) [data-aos] { opacity: 1 !important; transform: none !important; transition: none !important; }
+@media(max-width:650px) {
+  .public-site { padding-top: 64px; }
+  .site-header { position: fixed; top: 0; right: 0; left: 0; z-index: 30; width: 100%; }
+}
