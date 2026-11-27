@@ -40,13 +40,13 @@ export default function AdminAccessPage() {
       const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
       if (error) throw error
       if (data.user.app_metadata.role !== 'admin') {
-        await supabase.auth.signOut()
+        const { error: signOutError } = await supabase.auth.signOut()
+        if (signOutError) console.error('Could not clear a non-admin session:', signOutError.message)
         setSession(null)
-        setErrorMessage('This account is not authorized for administrator access.')
+        setErrorMessage('Your sign-in succeeded, but this account has not been granted administrator access. Contact the campaign administrator.')
         return
       }
-      setSession(data.session)
-      setPassword('')
+      window.location.replace('/dashboard')
     } catch (error) {
       console.error('Administrator sign-in failed:', error)
       setErrorMessage('Sign-in failed. Check your credentials and try again.')
@@ -80,7 +80,8 @@ export default function AdminAccessPage() {
             <p role="status">Checking your secure session...</p>
           ) : hasAdminRole ? (
             <>
-              <p role="status">Your administrator session is verified. The administration workspace remains closed until its live data policies are configured.</p>
+              <p role="status">Your administrator session is verified.</p>
+              <a className="admin-access-dashboard-link" href="/dashboard">Open admin dashboard</a>
               <button className="admin-access-submit" type="button" onClick={() => void signOut()}>Sign out</button>
             </>
           ) : session ? (

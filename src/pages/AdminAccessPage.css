@@ -10,5 +10,7 @@
 .admin-access-form input { width: 100%; min-height: 44px; padding: 0 12px; border: 1px solid #d5d9d2; border-radius: 5px; background: #fff; color: #1e2420; font: inherit; }
 .admin-access-form input:focus-visible { outline: 2px solid #0f5c5c; outline-offset: 2px; }
 .admin-access-submit { min-height: 44px; padding: 0 16px; border: 1px solid #0f5c5c; border-radius: 5px; background: #0f5c5c; color: #fff; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.admin-access-dashboard-link { width: 100%; min-height: 44px; display: grid; place-items: center; margin-top: 20px; border: 1px solid #0f5c5c; border-radius: 5px; background: #0f5c5c; color: #fff !important; font-size: 12px !important; }
+.admin-access-dashboard-link:hover { background: #084848; }
 .admin-access-submit:disabled { cursor: wait; opacity: .7; }
 .admin-access-error { color: #9b382a !important; }
