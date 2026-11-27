@@ -1,0 +1,14 @@
+.searchable-lga { position:relative; width:100%; min-width:0; }
+.searchable-lga-trigger { width:100%; height:46px; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0 12px; border:1px solid #dddcd3; border-radius:4px; background:#fff; color:#1e2420; font:11px "Segoe UI",sans-serif; text-align:left; cursor:pointer; }
+.searchable-lga-trigger:focus-visible { outline:0; border-color:#0f5c5c; box-shadow:0 0 0 3px #0f5c5c14; }
+.searchable-lga-trigger:disabled { background:#f6f5f0; color:#929890; cursor:not-allowed; }
+.searchable-lga-trigger svg { width:14px; height:14px; flex:0 0 auto; fill:none; stroke:currentColor; stroke-width:1.5; }
+.searchable-lga-placeholder { color:#9ca199; }
+.searchable-lga-validation { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); clip-path:inset(50%); white-space:nowrap; border:0; }
+.searchable-lga-menu { position:absolute; top:calc(100% + 5px); right:0; left:0; z-index:20; padding:8px; border:1px solid #dddcd3; border-radius:6px; background:#fffefa; box-shadow:0 10px 28px rgba(20,37,29,.16); }
+.searchable-lga-search { width:100%; height:38px; padding:0 10px; border:1px solid #dddcd3; border-radius:4px; background:#fff; color:#1e2420; font:12px "Segoe UI",sans-serif; }
+.searchable-lga-search:focus { outline:0; border-color:#0f5c5c; box-shadow:0 0 0 3px #0f5c5c14; }
+.searchable-lga-options { max-height:220px; overflow-y:auto; overscroll-behavior:contain; padding-top:5px; }
+.searchable-lga-option { width:100%; min-height:38px; padding:8px 10px; border:0; border-radius:4px; background:transparent; color:#1e2420; font:12px "Segoe UI",sans-serif; text-align:left; cursor:pointer; }
+.searchable-lga-option:hover,.searchable-lga-option:focus-visible,.searchable-lga-option[aria-selected="true"] { outline:0; background:#edf4ef; color:#0f5c5c; }
+.searchable-lga-empty { margin:0; padding:12px 10px; color:#6d746d; font-size:11px; }

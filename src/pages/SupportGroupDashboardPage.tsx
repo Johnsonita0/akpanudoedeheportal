@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import { lgas, wards } from '../campaignData'
+import SearchableLgaSelect from '../components/SearchableLgaSelect'
+import { wards } from '../campaignData'
 import { supabase } from '../supabase'
 import './SupportGroupDashboardPage.css'
 
@@ -369,7 +370,7 @@ export default function SupportGroupDashboardPage() {
                 <label>Member full name *<input required maxLength={120} value={member.full_name} onChange={(event) => setMember({ ...member, full_name: event.target.value })} /></label>
                 <label>Phone number *<input required type="tel" value={member.phone} onChange={(event) => setMember({ ...member, phone: event.target.value })} /></label>
                 <label>Email <span>(optional)</span><input type="email" value={member.email} onChange={(event) => setMember({ ...member, email: event.target.value })} /></label>
-                <label>Local Government Area *<select required value={member.lga} onChange={(event) => setMember({ ...member, lga: event.target.value, ward: '' })}><option value="">Select LGA</option>{lgas.map((item) => <option key={item}>{item}</option>)}</select></label>
+                <label>Local Government Area *<SearchableLgaSelect required name="member_lga" value={member.lga} onChange={(lga) => setMember({ ...member, lga, ward: '' })} /></label>
                 <label>Ward *<select required value={member.ward} onChange={(event) => setMember({ ...member, ward: event.target.value })} disabled={!member.lga}><option value="">Select ward</option>{wards.map((item) => <option key={item}>{item}</option>)}</select></label>
                 <label>Voter identification number (VIN) *<input required autoComplete="off" value={member.vin} onChange={(event) => setMember({ ...member, vin: event.target.value })} /></label>
                 <fieldset className="group-member-consent">

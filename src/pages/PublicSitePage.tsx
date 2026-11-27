@@ -524,7 +524,7 @@ function PrivacyPage() {
         <p>The campaign team operating the Akpanudoedehe for Akwa Ibom website is responsible for personal information submitted through this site. To ask about your information, withdraw consent, or request access, correction or deletion, use the <a href="/contact">contact form</a> and select “Privacy or data rights request.” Do not include your VIN, password or other sensitive information in a message.</p>
 
         <h2>Information we collect</h2>
-        <p>Depending on how you register, we may collect your name, phone number, optional email and date of birth, Local Government Area, ward, optional polling-unit details, support-group membership, and voter identification number (VIN). A support-group coordinator account also uses the coordinator’s email and password through the sign-in provider, along with the group name, location and coordinator contact details. Group coordinators may enter member details only after each member has agreed to provide them.</p>
+        <p>Depending on how you register, we may collect your name, phone number, optional email, Local Government Area, ward, optional polling-unit details, support-group membership, and voter identification number (VIN). A support-group coordinator account also uses the coordinator’s email and password through the sign-in provider, along with the group name, location and coordinator contact details. Group coordinators may enter member details only after each member has agreed to provide them.</p>
         <p>Support-group membership may reveal a person’s political participation. Registration is voluntary, and choosing not to register does not prevent access to public campaign information.</p>
 
         <h2>How information is used</h2>

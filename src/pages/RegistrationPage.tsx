@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { campaignName, lgas, wards } from '../campaignData'
+import { campaignName, wards } from '../campaignData'
 import adcLogo from '../assets/adc-logo-from-campaign-poster.png'
 import stateEmblem from '../assets/akwa-ibom-state-emblem.png'
+import SearchableLgaSelect from '../components/SearchableLgaSelect'
 import { supabase } from '../supabase'
 import './RegistrationPage.css'
 
@@ -11,7 +12,6 @@ type Registration = {
   full_name: string
   phone: string
   email: string
-  date_of_birth: string
   lga: string
   ward: string
   support_group_id: string
@@ -54,7 +54,6 @@ export default function RegistrationPage() {
     full_name: '',
     phone: '',
     email: '',
-    date_of_birth: '',
     lga: '',
     ward: '',
     support_group_id: '',
@@ -230,10 +229,9 @@ export default function RegistrationPage() {
                   <label className="span-two">Full name *<input required name="full_name" autoComplete="name" value={registration.full_name} onChange={(event) => setRegistration({ ...registration, full_name: event.target.value })} placeholder="Enter your full name" /></label>
                   <label>Phone number *<input required name="phone" type="tel" autoComplete="tel" value={registration.phone} onChange={(event) => setRegistration({ ...registration, phone: event.target.value })} placeholder="+234" /></label>
                   <label>Email <span className="field-note">(optional)</span><input name="email" type="email" autoComplete="email" value={registration.email} onChange={(event) => setRegistration({ ...registration, email: event.target.value })} placeholder="you@example.com" /></label>
-                  <label>Date of birth <span className="field-note">(optional)</span><input name="date_of_birth" type="date" value={registration.date_of_birth} onChange={(event) => setRegistration({ ...registration, date_of_birth: event.target.value })} /></label>
                 </div>}
                 {step === 1 && <div className="registration-fields">
-                  <label>Local Government Area *<select required value={registration.lga} onChange={(event) => setRegistration({ ...registration, lga: event.target.value, ward: '' })}><option value="">Select LGA</option>{lgas.map((item) => <option key={item}>{item}</option>)}</select></label>
+                  <label>Local Government Area *<SearchableLgaSelect required name="lga" value={registration.lga} onChange={(lga) => setRegistration({ ...registration, lga, ward: '' })} /></label>
                   <label>Ward *<select required name="ward" value={registration.ward} onChange={(event) => setRegistration({ ...registration, ward: event.target.value })} disabled={!registration.lga}><option value="">{registration.lga ? 'Select ward' : 'Select an LGA first'}</option>{wards.map((item) => <option key={item}>{item}</option>)}</select></label>
                   <label className="span-two">Support group <span className="field-note">(optional)</span><select name="support_group_id" value={registration.support_group_id} onChange={(event) => setRegistration({ ...registration, support_group_id: event.target.value })}><option value="">Register without a group</option>{supportGroups.map((group) => <option key={group.id} value={group.id}>{group.name} — {group.lga}</option>)}</select></label>
                   {groupsMessage && <p className="registration-hint span-two" role="status">{groupsMessage}</p>}
@@ -241,7 +239,7 @@ export default function RegistrationPage() {
                   <p className="registration-hint span-two">Ward names shown are illustrative. Please confirm your ward with your local election authority.</p>
                 </div>}
                 {step === 2 && <div className="registration-fields">
-                  <div className="privacy-callout span-two"><span>i</span><p>Your VIN is collected for campaign registration. It is not shown to group coordinators. No authorised VIN-verification provider is currently configured, so it remains pending and is not sent to an external verifier.</p></div>
+                  <div className="privacy-callout span-two"><span>i</span><p>Your VIN is collected for campaign registration and is not shown to group coordinators. You can independently check your voter details on the official <a href="https://cvr.inecnigeria.org/vvs" target="_blank" rel="noreferrer">INEC Voter Verification Service</a>. This form does not send your information to INEC; automatic verification is unavailable because no authorised API is configured.</p></div>
                   <label className="span-two">Voter identification number (VIN) *<input required name="vin" autoComplete="off" value={registration.vin} onChange={(event) => setRegistration({ ...registration, vin: event.target.value })} placeholder="Enter the number on your voter's card" /></label>
                 </div>}
                 {step === 3 && <div className="consent-panel">
@@ -264,7 +262,7 @@ export default function RegistrationPage() {
               <div className="form-step-heading"><span>SUPPORT-GROUP ACCOUNT</span><h2>Coordinator details</h2></div>
               <div className="registration-fields">
                 <label className="span-two">Support group name *<input required maxLength={120} value={groupAccount.name} onChange={(event) => setGroupAccount({ ...groupAccount, name: event.target.value })} autoComplete="organization" /></label>
-                <label>Local Government Area *<select required value={groupAccount.lga} onChange={(event) => setGroupAccount({ ...groupAccount, lga: event.target.value })}><option value="">Select LGA</option>{lgas.map((item) => <option key={item}>{item}</option>)}</select></label>
+                <label>Local Government Area *<SearchableLgaSelect required name="group_lga" value={groupAccount.lga} onChange={(lga) => setGroupAccount({ ...groupAccount, lga })} /></label>
                 <label>Coordinator full name *<input required maxLength={120} value={groupAccount.coordinatorName} onChange={(event) => setGroupAccount({ ...groupAccount, coordinatorName: event.target.value })} autoComplete="name" /></label>
                 <label>Coordinator phone number *<input required type="tel" autoComplete="tel" value={groupAccount.phone} onChange={(event) => setGroupAccount({ ...groupAccount, phone: event.target.value })} placeholder="+234" /></label>
                 <label>Group login email *<input required type="email" autoComplete="email" value={groupAccount.email} onChange={(event) => setGroupAccount({ ...groupAccount, email: event.target.value })} /></label>
