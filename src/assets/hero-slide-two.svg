@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" fill="none">
+  <defs>
+    <linearGradient id="sky" x1="800" y1="0" x2="800" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#244E48"/>
+      <stop offset=".52" stop-color="#99A98D"/>
+      <stop offset="1" stop-color="#E3D8B8"/>
+    </linearGradient>
+    <linearGradient id="field" x1="800" y1="560" x2="800" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#728564"/>
+      <stop offset="1" stop-color="#243D34"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#sky)" d="M0 0h1600v900H0z"/>
+  <circle cx="1225" cy="210" r="84" fill="#E8C77F" fill-opacity=".86"/>
+  <path fill="#5C7561" d="M0 477c164-58 296-76 465-38 144 32 255 30 400-12 185-53 366-50 735 32v185H0V477Z"/>
+  <path fill="url(#field)" d="M0 599c173-48 335-51 518-3 191 50 306 46 502-12 191-56 365-53 580 16v300H0V599Z"/>
+  <path fill="#1E3D34" d="M0 730c189-53 385-38 570 27 177 63 319 64 494 7 172-56 343-69 536-35v171H0V730Z"/>
+  <g fill="#E6D9BD" fill-opacity=".88">
+    <path d="m219 577 94-62 96 62v80H219v-80Z"/>
+    <path d="m489 553 78-53 81 53v73H489v-73Z"/>
+    <path d="m1081 563 103-68 105 68v86h-208v-86Z"/>
+    <path d="m1304 535 72-48 74 48v68h-146v-68Z"/>
+  </g>
+  <g fill="#28483B">
+    <path d="M267 658h24v-52h-24zM536 627h20v-46h-20zM1130 649h24v-55h-24zM1358 603h18v-42h-18z"/>
+    <path d="M83 631c-4-55-1-110 7-163 3-20 11-29 17-26 6 3 6 19 3 37-7 48-10 99-6 152H83Z"/>
+    <path d="M91 480c-20-35-46-53-77-63 33-1 64 9 85 33 2-29 11-54 31-76-13 28-16 58-10 89 26-19 59-24 93-15-40 2-67 18-89 45l-33-13Z"/>
+    <path d="M1489 613c-3-54 0-108 7-159 3-19 11-28 17-25 6 3 6 19 3 36-7 47-10 97-6 148h-21Z"/>
+    <path d="M1497 467c-19-34-45-52-75-61 32-1 62 8 83 32 1-28 11-53 30-74-13 27-16 56-10 86 26-18 57-23 90-14-39 2-65 17-87 44l-31-13Z"/>
+  </g>
+  <path stroke="#F0E2C3" stroke-opacity=".34" stroke-width="3" d="M0 704c191-34 351-26 531 19 191 48 317 43 512-8 190-50 360-53 557-15"/>
+  <path fill="#172F2B" fill-opacity=".16" d="M0 0h1600v900H0z"/>
+</svg>
