@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { sampleEvents, sampleSupporters } from '../campaignData'
+import MobileBottomNav from '../components/MobileBottomNav'
 import './SupporterPortalPage.css'
 
 const portalLinks = [
@@ -19,7 +20,21 @@ export default function SupporterPortalPage() {
         {section === 'Support group' && <div className="portal-heading"><span className="portal-eyebrow">YOUR COMMUNITY</span><h1>Support group</h1><p>Connect with campaign activity in your area.</p><section className="portal-panel portal-group-detail"><span>YOUR GROUP</span><h2>{member.group}</h2><p>{member.lga} Local Government Area · {member.ward}</p><div><strong>320</strong><small>sample group members</small></div><p className="portal-demo-copy">This is an illustrative group preview; member records are not live.</p></section></div>}
         {section === 'Events' && <div className="portal-heading"><span className="portal-eyebrow">CAMPAIGN CALENDAR</span><h1>Events</h1><p>Meet the campaign at a community activity.</p><section className="portal-panel">{sampleEvents.map((event) => <article className="portal-event-row" key={event.day}><div className="portal-event-date"><strong>{event.day}</strong><span>{event.month}</span></div><div><h3>{event.title}</h3><p>{event.location} · {event.time}</p></div><button type="button">Register</button></article>)}</section></div>}
         {section === 'Notifications' && <div className="portal-heading"><span className="portal-eyebrow">UPDATES FOR YOU</span><h1>Notifications</h1><p>Campaign and event updates will be delivered here.</p><section className="portal-panel portal-empty-state"><span>♧</span><h2>You're all caught up.</h2><p>No new notifications in this preview.</p></section></div>}
-        {section === 'Privacy' && <div className="portal-heading"><span className="portal-eyebrow">YOUR INFORMATION</span><h1>Privacy</h1><p>Understand how supporter information is handled.</p><section className="portal-panel portal-privacy-copy"><h2>Voter identification information</h2><p>Your VIN is sensitive personal information and is shown only in masked form in your supporter profile. An authorised verification provider must be configured before this campaign can verify voter cards.</p><a href="/privacy">Read the campaign privacy notice </a></section></div>}</div><nav className="portal-bottom-nav">{portalLinks.slice(0, 5).map(([label, icon]) => <button className={section === label ? 'active' : ''} key={label} onClick={() => setSection(label)} type="button"><i>{icon}</i>{label === 'My profile' ? 'Profile' : label === 'Notifications' ? 'Alerts' : label === 'Support group' ? 'Group' : label}</button>)}</nav></main></div>
+        {section === 'Privacy' && <div className="portal-heading"><span className="portal-eyebrow">YOUR INFORMATION</span><h1>Privacy</h1><p>Understand how supporter information is handled.</p><section className="portal-panel portal-privacy-copy"><h2>Voter identification information</h2><p>Your VIN is sensitive personal information and is shown only in masked form in your supporter profile. An authorised verification provider must be configured before this campaign can verify voter cards.</p><a href="/privacy">Read the campaign privacy notice </a></section></div>}</div><MobileBottomNav
+          items={[
+            { label: 'Home', icon: '⌂', onClick: () => setSection('Home') },
+            { label: 'Profile', icon: '♙', onClick: () => setSection('My profile') },
+            { label: 'Group', icon: '◎', onClick: () => setSection('Support group') },
+          ]}
+          moreItems={[
+            { label: 'Events', icon: '▦', onClick: () => setSection('Events') },
+            { label: 'Notifications', icon: '♧', onClick: () => setSection('Notifications') },
+            { label: 'Privacy', icon: '◉', onClick: () => setSection('Privacy') },
+            { label: 'Campaign website', icon: '⌂', href: '/' },
+          ]}
+          activeLabel={section === 'My profile' ? 'Profile' : section === 'Support group' ? 'Group' : section === 'Home' ? 'Home' : undefined}
+          moreActive={['Events', 'Notifications', 'Privacy'].includes(section)}
+        /></main></div>
 }
 
 function ProfileItem({ label, value }: { label: string; value: string }) {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import MobileBottomNav from '../components/MobileBottomNav'
 import { supabase } from '../supabase'
 import './DashboardPage.css'
 
@@ -717,7 +718,6 @@ export default function DashboardPage() {
   const [loadingData, setLoadingData] = useState(true)
   const [dataError, setDataError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
-  const [menuOpen, setMenuOpen] = useState(false)
   const path = window.location.pathname
   const section = currentSection(path)
   const hasAdminRole = session?.user.app_metadata.role === 'admin'
@@ -854,15 +854,29 @@ export default function DashboardPage() {
 
   return (
     <div className="dashboard-shell">
-      <aside className={`dashboard-sidebar ${menuOpen ? 'mobile-open' : ''}`}>
+      <aside className="dashboard-sidebar">
         <a href="/" className="dashboard-brand"><span className="dashboard-brand-mark">A</span><span><strong>CAMPAIGN</strong><small>ADMINISTRATION</small></span></a>
         <span className="admin-nav-caption">WORKSPACE</span>
         <nav>{navigation.map((item) => <a className={section === item.label ? 'active' : ''} href={item.path} key={item.path}><span className="admin-nav-icon">{item.icon}</span>{item.label}</a>)}</nav>
         <div className="dashboard-sidebar-bottom"><span className="admin-avatar">{initials}</span><span><strong>{email}</strong><small>Administrator</small></span><button type="button" onClick={() => void signOut()}>Sign out</button></div>
       </aside>
       <main className="dashboard-main">
-        <header className="dashboard-topbar"><button className="dashboard-mobile-menu" onClick={() => setMenuOpen(!menuOpen)} type="button" aria-label="Toggle menu">☰</button><div className="admin-breadcrumb">Campaign Admin <span>/</span> {section}</div><div className="dashboard-top-actions"><span className="topbar-admin">{email}</span><span className="admin-avatar">{initials}</span></div></header>
+        <header className="dashboard-topbar"><div className="admin-breadcrumb">Campaign Admin <span>/</span> {section}</div><div className="dashboard-top-actions"><span className="topbar-admin">{email}</span><span className="admin-avatar">{initials}</span></div></header>
         <div className="dashboard-content">{dataError && !loadingData && <p className="admin-data-error" role="alert">{dataError}</p>}{content}</div>
+        <MobileBottomNav
+          items={[
+            { label: 'Overview', icon: '⌂', href: '/dashboard' },
+            { label: 'Supporters', icon: '♙', href: '/dashboard/supporters' },
+            { label: 'Groups', icon: '◎', href: '/dashboard/groups' },
+          ]}
+          moreItems={[
+            { label: 'Public enquiries', icon: '✉', href: '/dashboard/enquiries' },
+            { label: 'Reports', icon: '▥', href: '/dashboard/reports' },
+            { label: 'Campaign website', icon: '⌂', href: '/' },
+            { label: 'Sign out', icon: '↪', onClick: () => void signOut() },
+          ]}
+          activeLabel={section === 'Support groups' ? 'Groups' : section}
+        />
       </main>
     </div>
   )

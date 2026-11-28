@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import AOS from 'aos'
 import 'aos/dist/aos.css'
 import { apiUrl } from '../api'
@@ -15,6 +15,7 @@ import heroCandidateOne from '../assets/hero-candidate-1.webp'
 import heroCandidateTwo from '../assets/hero-candidate-2.webp'
 import heroCandidateThree from '../assets/hero-candidate-3.webp'
 import heroCandidateFour from '../assets/hero-candidate-4.webp'
+import MobileBottomNav from '../components/MobileBottomNav'
 import './PublicSitePage.css'
 
 const aosEffects = ['fade-up', 'fade-left', 'fade-right', 'zoom-in'] as const
@@ -76,29 +77,6 @@ const links = [
   ['Events', '/events'],
   ['Contact', '/contact'],
 ]
-
-const mobileLinks = [
-  { label: 'Home', href: '/', icon: 'home' },
-  { label: 'News', href: '/news', icon: 'news' },
-  { label: 'Events', href: '/events', icon: 'events' },
-  { label: 'Join', href: '/register', icon: 'join' },
-] as const
-
-function MobileNavIcon({ name }: { name: 'home' | 'news' | 'events' | 'join' | 'menu' }) {
-  let icon
-  if (name === 'home') {
-    icon = <><path d="m3 10 9-7 9 7" /><path d="M5.5 9v11h13V9M9 20v-6h6v6" /></>
-  } else if (name === 'news') {
-    icon = <><path d="M5 4h13a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z" /><path d="M8.5 9h8M8.5 13h8M8.5 17h5" /></>
-  } else if (name === 'events') {
-    icon = <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4M17 3v4M3 10h18" /></>
-  } else if (name === 'join') {
-    icon = <><circle cx="9" cy="8" r="3" /><path d="M3 20c0-3.1 2.4-5 6-5m8-3v8m-4-4h8" /></>
-  } else {
-    icon = <><path d="M4 7h16M4 12h16M4 17h16" /></>
-  }
-  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">{icon}</svg>
-}
 
 function CampaignEmblems() {
   return (
@@ -561,9 +539,6 @@ function PrivacyPage() {
 
 export default function PublicSitePage({ path }: { path: string }) {
   const active = links.find(([, href]) => href === path)?.[0] || 'Home'
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null)
-  const isMobilePrimaryPage = mobileLinks.some((link) => link.href === path)
 
   useEffect(() => {
     if (!aosInitialized) {
@@ -594,18 +569,6 @@ export default function PublicSitePage({ path }: { path: string }) {
     }
   }, [path])
 
-  useEffect(() => {
-    if (!mobileMenuOpen) return
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setMobileMenuOpen(false)
-        mobileMenuButtonRef.current?.focus()
-      }
-    }
-    window.addEventListener('keydown', closeOnEscape)
-    return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [mobileMenuOpen])
-
   let content
   if (path === '/about') content = <AboutPage />
   else if (path === '/manifesto') content = <ManifestoPage />
@@ -620,23 +583,22 @@ export default function PublicSitePage({ path }: { path: string }) {
       <SiteHeader active={active} />
       {content}
       <SiteFooter />
-      {mobileMenuOpen && <button className="mobile-menu-scrim" type="button" aria-label="Close mobile menu" onClick={() => setMobileMenuOpen(false)} />}
-      <div className="mobile-menu-panel" id="mobile-more-menu" aria-label="More campaign pages" hidden={!mobileMenuOpen}>
-        <a href="/about" onClick={() => setMobileMenuOpen(false)}>About the candidate</a>
-        <a href="/manifesto" onClick={() => setMobileMenuOpen(false)}>Manifesto</a>
-        <a href="/contact" onClick={() => setMobileMenuOpen(false)}>Contact</a>
-        <a href="/privacy" onClick={() => setMobileMenuOpen(false)}>Privacy notice</a>
-      </div>
-      <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
-        {mobileLinks.map(({ label, href, icon }) => (
-          <a className={path === href ? 'active' : ''} href={href} key={href} aria-current={path === href ? 'page' : undefined}>
-            <span className="mobile-nav-icon"><MobileNavIcon name={icon} /></span><span>{label}</span>
-          </a>
-        ))}
-        <button ref={mobileMenuButtonRef} type="button" className={!isMobilePrimaryPage ? 'active' : ''} aria-expanded={mobileMenuOpen} aria-controls="mobile-more-menu" aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'} onClick={() => setMobileMenuOpen((open) => !open)}>
-          <span className="mobile-nav-icon"><MobileNavIcon name="menu" /></span><span>Menu</span>
-        </button>
-      </nav>
+      <MobileBottomNav
+        items={[
+          { label: 'Home', icon: '⌂', href: '/' },
+          { label: 'News', icon: '▤', href: '/news' },
+          { label: 'Join', icon: '+', href: '/register' },
+        ]}
+        moreItems={[
+          { label: 'Events', icon: '▦', href: '/events' },
+          { label: 'About the candidate', icon: '♙', href: '/about' },
+          { label: 'Manifesto', icon: '▥', href: '/manifesto' },
+          { label: 'Contact', icon: '✉', href: '/contact' },
+          { label: 'Privacy notice', icon: '◉', href: '/privacy' },
+        ]}
+        activeLabel={path === '/' ? 'Home' : path === '/news' ? 'News' : undefined}
+        moreActive={path !== '/' && path !== '/news'}
+      />
     </div>
   )
 }

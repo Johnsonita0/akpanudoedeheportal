@@ -3,6 +3,7 @@ import { apiUrl } from '../api'
 import { campaignName, wards } from '../campaignData'
 import adcLogo from '../assets/adc-logo-from-campaign-poster.png'
 import stateEmblem from '../assets/akwa-ibom-state-emblem.png'
+import MobileBottomNav from '../components/MobileBottomNav'
 import SearchableLgaSelect from '../components/SearchableLgaSelect'
 import { supabase } from '../supabase'
 import './RegistrationPage.css'
@@ -317,6 +318,20 @@ export default function RegistrationPage() {
         <p className="registration-privacy">By registering, you agree to the applicable data-use terms in our <a href="/privacy">privacy notice</a>. <a href="/group-dashboard">Support-group login</a></p>
       </main>
       <footer className="registration-footer">© 2026 {campaignName}. Registration is voluntary. <a href="/privacy">Privacy notice</a></footer>
+      <MobileBottomNav
+        items={[
+          { label: 'Home', icon: '⌂', href: '/' },
+          { label: 'News', icon: '▤', href: '/news' },
+          { label: 'Join', icon: '+', href: '/register' },
+        ]}
+        moreItems={[
+          { label: 'Support-group login', icon: '◎', href: '/group-dashboard' },
+          { label: 'Events', icon: '▦', href: '/events' },
+          { label: 'Contact', icon: '✉', href: '/contact' },
+          { label: 'Privacy notice', icon: '◉', href: '/privacy' },
+        ]}
+        activeLabel="Join"
+      />
     </div>
   )
 }

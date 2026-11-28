@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import MobileBottomNav from '../components/MobileBottomNav'
 import { supabase } from '../supabase'
 import './AdminAccessPage.css'
 
@@ -105,6 +106,20 @@ export default function AdminAccessPage() {
           <a href="/">Return to the public campaign site</a>
         </section>
       </main>
+      <MobileBottomNav
+        items={[
+          { label: 'Home', icon: '⌂', href: '/' },
+          { label: 'Join', icon: '+', href: '/register' },
+          { label: 'Group login', icon: '◎', href: '/group-dashboard' },
+        ]}
+        moreItems={[
+          { label: 'News', icon: '▤', href: '/news' },
+          { label: 'Events', icon: '▦', href: '/events' },
+          { label: 'Contact', icon: '✉', href: '/contact' },
+          { label: 'Privacy notice', icon: '◉', href: '/privacy' },
+        ]}
+        moreActive
+      />
     </>
   )
 }
