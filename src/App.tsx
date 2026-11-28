@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import AdminAccessPage from './pages/AdminAccessPage'
 import DashboardPage from './pages/DashboardPage'
+import GroupMemberRegistrationPage, { MemberVerificationPage } from './pages/GroupMemberRegistrationPage'
 import PublicSitePage from './pages/PublicSitePage'
 import RegistrationPage from './pages/RegistrationPage'
 import SupporterPortalPage from './pages/SupporterPortalPage'
@@ -18,6 +19,10 @@ export default function App() {
   const path = window.location.pathname.replace(/\/+$/, '') || '/'
 
   if (path === '/register') return <RegistrationPage />
+  const groupRegistration = path.match(/^\/register\/group\/([^/]+)$/)
+  if (groupRegistration) return <GroupMemberRegistrationPage token={groupRegistration[1]} />
+  const memberVerification = path.match(/^\/verify-member\/([^/]+)$/)
+  if (memberVerification) return <MemberVerificationPage token={memberVerification[1]} />
   if (path === '/group-dashboard') return <SupportGroupDashboardPage />
   if (path === '/portal') return <SupporterPortalPage />
   if (path === '/admin' || path.startsWith('/admin/')) return <AdminAccessPage />

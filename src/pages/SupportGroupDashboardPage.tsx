@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
+import { QRCodeSVG } from 'qrcode.react'
 import MobileBottomNav from '../components/MobileBottomNav'
 import NigeriaStateSelect from '../components/NigeriaStateSelect'
+import PinCodeInput, { type PinDigits } from '../components/PinCodeInput'
 import SearchableLgaSelect from '../components/SearchableLgaSelect'
 import SearchableOptionSelect from '../components/SearchableOptionSelect'
 import { wards } from '../campaignData'
@@ -15,6 +17,7 @@ import './SupportGroupDashboardPage.css'
 type SupportGroup = {
   id: number
   name: string
+  member_registration_token: string
   state: string | null
   lga: string
   status: 'pending' | 'approved' | 'suspended'
@@ -33,6 +36,7 @@ type GroupMember = {
   lga: string
   ward: string
   vin_status: 'pending' | 'verified' | 'not_verified'
+  member_approval_status: 'pending' | 'approved' | 'rejected'
   created_at: string
 }
 
@@ -45,6 +49,7 @@ type GroupMemberDetails = GroupMember & {
   polling_unit_address: string | null
   photo_path: string | null
   photo_url: string | null
+  member_verification_token: string
 }
 
 type GroupMemberDraft = {
@@ -74,6 +79,14 @@ type GroupMemberImportRow = {
 type GroupToast = {
   message: string
   tone: 'success' | 'error' | 'info'
+}
+
+const pinIdleTimeout = 10 * 60 * 1000
+
+const emptyPinDigits = (): PinDigits => ['', '', '', '']
+
+function pinResetRequestStorageKey(userId: string) {
+  return `akpanudo.group-pin-reset.v1.${userId}`
 }
 
 const emptyGroupMember: GroupMemberDraft = {
@@ -230,6 +243,8 @@ function isSupportGroup(value: unknown): value is SupportGroup {
   const row = value as Record<string, unknown>
   return Number.isSafeInteger(row.id) &&
     typeof row.name === 'string' &&
+    typeof row.member_registration_token === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(row.member_registration_token) &&
     (row.state === null || typeof row.state === 'string') &&
     typeof row.lga === 'string' &&
     (row.status === 'pending' || row.status === 'approved' || row.status === 'suspended') &&
@@ -250,6 +265,7 @@ function isGroupMember(value: unknown): value is GroupMember {
     typeof row.lga === 'string' &&
     typeof row.ward === 'string' &&
     (row.vin_status === 'pending' || row.vin_status === 'verified' || row.vin_status === 'not_verified') &&
+    (row.member_approval_status === 'pending' || row.member_approval_status === 'approved' || row.member_approval_status === 'rejected') &&
     typeof row.created_at === 'string'
 }
 
@@ -265,7 +281,9 @@ function isGroupMemberDetails(value: unknown): value is Omit<GroupMemberDetails,
     row.polling_unit_address,
     row.photo_path,
   ]
-  return nullableStrings.every((field) => field === null || typeof field === 'string')
+  return nullableStrings.every((field) => field === null || typeof field === 'string') &&
+    typeof row.member_verification_token === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(row.member_verification_token)
 }
 
 function maskPhone(value: string): string {
@@ -284,6 +302,7 @@ function GroupMemberDetailView({
   onUploadPhoto: (photo: File) => void
   uploadingPhoto: boolean
 }) {
+  const verificationUrl = `${window.location.origin}/verify-member/${member.member_verification_token}`
   const detailItems: Array<[string, string | null]> = [
     ['Phone number', maskPhone(member.phone)],
     ['Email', member.email],
@@ -324,6 +343,10 @@ function GroupMemberDetailView({
               <p>{member.state ? `${member.state} · ` : ''}{member.lga} · {member.ward}</p>
               <p className="group-member-id-phone">{maskPhone(member.phone)}</p>
             </div>
+          </div>
+          <div className="group-member-id-verification">
+            <QRCodeSVG value={verificationUrl} size={82} level="M" marginSize={4} title={`Verify member ${member.full_name}`} />
+            <div><strong>APPROVED GROUP MEMBER</strong><span>Scan to confirm membership on the campaign site.</span></div>
           </div>
           <div className="group-member-id-footer">
             <span>AKPANUDOEDHE FOR AKWA IBOM</span>
@@ -367,7 +390,11 @@ export default function SupportGroupDashboardPage() {
   const [session, setSession] = useState<Session | null>(null)
   const [authReady, setAuthReady] = useState(false)
   const [group, setGroup] = useState<SupportGroup | null>(null)
+  const [groupNameDraft, setGroupNameDraft] = useState('')
+  const [savingGroupName, setSavingGroupName] = useState(false)
   const [members, setMembers] = useState<GroupMember[]>([])
+  const [pendingMembers, setPendingMembers] = useState<GroupMember[]>([])
+  const [reviewingApplicationId, setReviewingApplicationId] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -395,6 +422,24 @@ export default function SupportGroupDashboardPage() {
   const settingsCloseButtonRef = useRef<HTMLButtonElement>(null)
   const [headerMenuOpen, setHeaderMenuOpen] = useState<'notifications' | 'profile' | null>(null)
   const headerMenusRef = useRef<HTMLDivElement>(null)
+  const passwordSignInAtRef = useRef<number | null>(null)
+  const lastActivityAtRef = useRef(Date.now())
+  const [pinEnabled, setPinEnabled] = useState(false)
+  const [pinServiceUnavailable, setPinServiceUnavailable] = useState(false)
+  const [pinLocked, setPinLocked] = useState(false)
+  const [pinSetupRequired, setPinSetupRequired] = useState(false)
+  const [pinResetAuthorized, setPinResetAuthorized] = useState(false)
+  const [pinResetEmailSent, setPinResetEmailSent] = useState(false)
+  const [pinDigits, setPinDigits] = useState<PinDigits>(emptyPinDigits)
+  const [newPinDigits, setNewPinDigits] = useState<PinDigits>(emptyPinDigits)
+  const [confirmPinDigits, setConfirmPinDigits] = useState<PinDigits>(emptyPinDigits)
+  const [pinBusy, setPinBusy] = useState(false)
+  const [savingPin, setSavingPin] = useState(false)
+  const [pinError, setPinError] = useState('')
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [savingPassword, setSavingPassword] = useState(false)
 
   const notify = useCallback((message: string, tone: GroupToast['tone'] = 'info') => {
     setToast({ message, tone })
@@ -405,6 +450,25 @@ export default function SupportGroupDashboardPage() {
     const timeout = window.setTimeout(() => setToast(null), 6000)
     return () => window.clearTimeout(timeout)
   }, [toast])
+
+  useEffect(() => {
+    if (!pinLocked && !pinSetupRequired && !pinResetAuthorized && !pinServiceUnavailable) return
+    setHeaderMenuOpen(null)
+    setSettingsOpen(false)
+    setAddMemberOpen(false)
+    setImportMembersOpen(false)
+    setSelectedMember(null)
+    setToast(null)
+  }, [pinLocked, pinSetupRequired, pinResetAuthorized, pinServiceUnavailable])
+
+  useEffect(() => {
+    if (settingsOpen) return
+    setCurrentPassword('')
+    setNewPassword('')
+    setConfirmPassword('')
+    setNewPinDigits(emptyPinDigits())
+    setConfirmPinDigits(emptyPinDigits())
+  }, [settingsOpen])
 
   useEffect(() => {
     if (settingsOpen) settingsCloseButtonRef.current?.focus()
@@ -449,10 +513,26 @@ export default function SupportGroupDashboardPage() {
     }
 
     let active = true
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (active) {
         setSession(nextSession)
         setAuthReady(true)
+        if (nextSession && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+          try {
+            const requestedAt = Number(window.localStorage.getItem(pinResetRequestStorageKey(nextSession.user.id)))
+            const signedInAt = Date.parse(nextSession.user.last_sign_in_at ?? '')
+            if (
+              Number.isFinite(requestedAt) &&
+              requestedAt > 0 &&
+              Date.now() - requestedAt <= 60 * 60 * 1000 &&
+              Number.isFinite(signedInAt) &&
+              signedInAt >= requestedAt - 60_000
+            ) setPinResetAuthorized(true)
+          } catch (error) {
+            console.error('Could not verify the PIN reset request:', error)
+            notify('PIN recovery could not be verified in this browser. Sign out and open the email reset link again.', 'error')
+          }
+        }
       }
     })
     void supabase.auth.getSession().then(({ data, error }) => {
@@ -478,7 +558,9 @@ export default function SupportGroupDashboardPage() {
     }
     if (!authReady || !session) {
       setGroup(null)
+      setGroupNameDraft('')
       setMembers([])
+      setPendingMembers([])
       setSelectedMember(null)
       setMember({ ...emptyGroupMember })
       setMemberPhoto(null)
@@ -488,6 +570,17 @@ export default function SupportGroupDashboardPage() {
       setImportRows([])
       setImportConsent(false)
       setSettingsOpen(false)
+      setPinEnabled(false)
+      setPinServiceUnavailable(false)
+      setPinLocked(false)
+      setPinSetupRequired(false)
+      setPinResetAuthorized(false)
+      setPinResetEmailSent(false)
+      setPinDigits(emptyPinDigits())
+      setNewPinDigits(emptyPinDigits())
+      setConfirmPinDigits(emptyPinDigits())
+      setPinError('')
+      passwordSignInAtRef.current = null
       setLoading(false)
       return
     }
@@ -498,7 +591,7 @@ export default function SupportGroupDashboardPage() {
       if (!supabase) return
       const { data: groupData, error: groupError } = await supabase
         .from('support_groups')
-        .select('id,name,state,lga,status,logo_url,photo_url,logo_scale,photo_scale')
+        .select('id,name,member_registration_token,state,lga,status,logo_url,photo_url,logo_scale,photo_scale')
         .eq('owner_user_id', session.user.id)
         .maybeSingle()
       if (!active) return
@@ -518,30 +611,70 @@ export default function SupportGroupDashboardPage() {
         if (active) {
           setGroup(null)
           setMembers([])
+          setPendingMembers([])
           setLoading(false)
         }
         return
       }
 
-      const { data: memberData, error: memberError } = await supabase
-        .from('supporter_registrations')
-        .select('id,full_name,phone,email,state,lga,ward,vin_status,created_at')
-        .eq('support_group_id', groupData.id)
-        .order('created_at', { ascending: false })
+      setGroup(groupData)
+      setGroupNameDraft(groupData.name)
+      setLogoScale(groupData.logo_scale)
+      setPhotoScale(groupData.photo_scale)
+
+      const { data: hasPin, error: pinStatusError } = await supabase.rpc('support_group_has_pin', {
+        p_group_id: groupData.id,
+      })
       if (!active) return
-      if (memberError || !Array.isArray(memberData) || !memberData.every(isGroupMember)) {
-        if (memberError) console.error('Could not load support-group members:', memberError.message)
+      if (pinStatusError || typeof hasPin !== 'boolean') {
+        if (pinStatusError) console.error('Could not check coordinator PIN status:', pinStatusError.message)
+        setPinEnabled(false)
+        setPinServiceUnavailable(true)
+        setPinLocked(true)
+        notify('Coordinator PIN status could not be verified. Dashboard data is locked until the Supabase PIN service is available.', 'error')
+      } else {
+        setPinServiceUnavailable(false)
+        setPinEnabled(hasPin)
+        const freshPasswordSignIn = passwordSignInAtRef.current !== null &&
+          Date.now() - passwordSignInAtRef.current < 60_000
+        lastActivityAtRef.current = Date.now()
+        setPinLocked(hasPin && !freshPasswordSignIn)
+        if (freshPasswordSignIn) passwordSignInAtRef.current = null
+      }
+
+      const [membersResult, pendingMembersResult] = await Promise.all([
+        supabase
+          .from('supporter_registrations')
+          .select('id,full_name,phone,email,state,lga,ward,vin_status,member_approval_status,created_at')
+          .eq('support_group_id', groupData.id)
+          .eq('registration_type', 'group_member')
+          .eq('member_approval_status', 'approved')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('supporter_registrations')
+          .select('id,full_name,phone,email,state,lga,ward,vin_status,member_approval_status,created_at')
+          .eq('support_group_id', groupData.id)
+          .eq('registration_type', 'group_member')
+          .eq('member_approval_status', 'pending')
+          .order('created_at', { ascending: false }),
+      ])
+      if (!active) return
+      if (
+        membersResult.error || pendingMembersResult.error ||
+        !Array.isArray(membersResult.data) || !membersResult.data.every(isGroupMember) ||
+        !Array.isArray(pendingMembersResult.data) || !pendingMembersResult.data.every(isGroupMember)
+      ) {
+        if (membersResult.error) console.error('Could not load approved support-group members:', membersResult.error.message)
+        if (pendingMembersResult.error) console.error('Could not load group-member applications:', pendingMembersResult.error.message)
         notify('Your group is verified, but its member list could not be loaded. Please try again later.', 'error')
-        setGroup(groupData)
         setMembers([])
+        setPendingMembers([])
         setLoading(false)
         return
       }
 
-      setGroup(groupData)
-      setLogoScale(groupData.logo_scale)
-      setPhotoScale(groupData.photo_scale)
-      setMembers(memberData)
+      setMembers(membersResult.data)
+      setPendingMembers(pendingMembersResult.data)
       setToast(null)
       setLoading(false)
     })()
@@ -550,6 +683,63 @@ export default function SupportGroupDashboardPage() {
       active = false
     }
   }, [authReady, session?.user.id, isMemberPreview, notify])
+
+  useEffect(() => {
+    if (!session || !group || !pinEnabled || pinLocked || pinSetupRequired || pinResetAuthorized) return
+
+    const checkInactivity = () => {
+      if (Date.now() - lastActivityAtRef.current >= pinIdleTimeout) {
+        setPinLocked(true)
+        setPinDigits(emptyPinDigits())
+        setPinError('')
+      }
+    }
+
+    const recordActivity = () => {
+      lastActivityAtRef.current = Date.now()
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') checkInactivity()
+    }
+
+    window.addEventListener('pointerdown', recordActivity, true)
+    window.addEventListener('keydown', recordActivity, true)
+    window.addEventListener('touchstart', recordActivity, true)
+    window.addEventListener('mousemove', recordActivity, true)
+    window.addEventListener('scroll', recordActivity, true)
+    window.addEventListener('wheel', recordActivity, true)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    const timer = window.setInterval(checkInactivity, 15_000)
+    return () => {
+      window.removeEventListener('pointerdown', recordActivity, true)
+      window.removeEventListener('keydown', recordActivity, true)
+      window.removeEventListener('touchstart', recordActivity, true)
+      window.removeEventListener('mousemove', recordActivity, true)
+      window.removeEventListener('scroll', recordActivity, true)
+      window.removeEventListener('wheel', recordActivity, true)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.clearInterval(timer)
+    }
+  }, [session?.user.id, group?.id, pinEnabled, pinLocked, pinSetupRequired, pinResetAuthorized])
+
+  useEffect(() => {
+    if (!pinResetAuthorized || !session || !group) return
+    setPinEnabled(true)
+    setPinLocked(false)
+    setPinSetupRequired(true)
+    setPinResetAuthorized(false)
+    setPinDigits(emptyPinDigits())
+    setPinError('')
+    setPinResetEmailSent(false)
+    try {
+      window.localStorage.removeItem(pinResetRequestStorageKey(session.user.id))
+    } catch (error) {
+      console.error('Could not clear the coordinator PIN recovery request:', error)
+    }
+    window.history.replaceState({}, document.title, window.location.pathname)
+    notify('Your email was verified. Choose a new device PIN to reopen the dashboard.', 'success')
+  }, [pinResetAuthorized, session?.user.id, group?.id, notify])
 
   useEffect(() => {
     if (selectedMember) {
@@ -564,16 +754,194 @@ export default function SupportGroupDashboardPage() {
       return
     }
     setSubmitting(true)
+    passwordSignInAtRef.current = Date.now()
     setToast(null)
     try {
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
       if (error) throw error
       setPassword('')
     } catch (error) {
+      passwordSignInAtRef.current = null
       console.error('Support-group sign-in failed:', error)
       notify('Sign-in failed. Check the coordinator email and password, then try again.', 'error')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const saveGroupName = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const name = groupNameDraft.trim()
+    if (!supabase || !session || !group) return
+    if (name.length < 2 || name.length > 120) {
+      notify('Group name must be between 2 and 120 characters.', 'error')
+      return
+    }
+    setSavingGroupName(true)
+    try {
+      const { data, error } = await supabase
+        .from('support_groups')
+        .update({ name })
+        .eq('id', group.id)
+        .eq('owner_user_id', session.user.id)
+        .select('id,name')
+        .maybeSingle()
+      if (error) throw error
+      if (!data) throw new Error('No matching group was updated.')
+      setGroup({ ...group, name: data.name })
+      setGroupNameDraft(data.name)
+      notify('Group name updated.', 'success')
+    } catch (error) {
+      console.error('Could not update support-group name:', error)
+      notify('Group name could not be updated. Please try again.', 'error')
+    } finally {
+      setSavingGroupName(false)
+    }
+  }
+
+  const changeCoordinatorPassword = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!supabase || !session?.user.email) {
+      notify('Coordinator password settings are unavailable for this account.', 'error')
+      return
+    }
+    if (newPassword.length < 8) {
+      notify('Choose a password with at least 8 characters.', 'error')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      notify('The new passwords do not match.', 'error')
+      return
+    }
+    setSavingPassword(true)
+    try {
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: session.user.email,
+        password: currentPassword,
+      })
+      if (verifyError) throw verifyError
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) throw error
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      notify('Coordinator password updated.', 'success')
+    } catch (error) {
+      console.error('Could not update coordinator password:', error)
+      notify('Password could not be changed. Check your current password and try again.', 'error')
+    } finally {
+      setSavingPassword(false)
+    }
+  }
+
+  const saveCoordinatorPin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!supabase || !session || !group) return
+    const pin = newPinDigits.join('')
+    if (!/^\d{4}$/.test(pin)) {
+      setPinError('Enter all four digits of the new PIN.')
+      return
+    }
+    if (pin !== confirmPinDigits.join('')) {
+      setPinError('The PIN entries do not match.')
+      return
+    }
+    setSavingPin(true)
+    setPinError('')
+    try {
+      const { error } = await supabase.rpc('set_support_group_pin', {
+        p_group_id: group.id,
+        p_pin: pin,
+      })
+      if (error) throw error
+      setPinEnabled(true)
+      setPinServiceUnavailable(false)
+      lastActivityAtRef.current = Date.now()
+      setPinLocked(false)
+      setPinSetupRequired(false)
+      setPinResetAuthorized(false)
+      setPinDigits(emptyPinDigits())
+      setNewPinDigits(emptyPinDigits())
+      setConfirmPinDigits(emptyPinDigits())
+      notify('Device PIN saved. It will lock this browser after 10 minutes of inactivity.', 'success')
+    } catch (error) {
+      console.error('Could not save coordinator device PIN:', error)
+      setPinError('The PIN could not be saved to Supabase. Check the latest PIN migration and try again.')
+    } finally {
+      setSavingPin(false)
+    }
+  }
+
+  const unlockWithPin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!supabase || !session || !group || !pinEnabled) return
+    const pin = pinDigits.join('')
+    if (!/^\d{4}$/.test(pin)) {
+      setPinError('Enter all four digits to unlock.')
+      return
+    }
+    setPinBusy(true)
+    setPinError('')
+    try {
+      const { data: matches, error } = await supabase.rpc('verify_support_group_pin', {
+        p_group_id: group.id,
+        p_pin: pin,
+      })
+      if (error) throw error
+      if (matches !== true) {
+        setPinDigits(emptyPinDigits())
+        setPinError('That PIN did not match. Try again or use the email recovery link.')
+        return
+      }
+      lastActivityAtRef.current = Date.now()
+      setPinDigits(emptyPinDigits())
+      setPinLocked(false)
+    } catch (error) {
+      console.error('Could not verify coordinator device PIN:', error)
+      setPinError('The PIN could not be verified by Supabase. Try again or sign out and sign in with your password.')
+    } finally {
+      setPinBusy(false)
+    }
+  }
+
+  const requestPinReset = async () => {
+    const coordinatorEmail = session?.user.email
+    if (!supabase || !session || !coordinatorEmail) {
+      setPinError('No coordinator email is available for PIN recovery. Sign out and sign in again.')
+      return
+    }
+    setPinBusy(true)
+    setPinError('')
+    const requestedAt = Math.floor(Date.now() / 1000) * 1000
+    try {
+      window.localStorage.setItem(pinResetRequestStorageKey(session.user.id), String(requestedAt))
+    } catch (error) {
+      console.error('Could not save coordinator PIN recovery request:', error)
+      setPinError('PIN recovery could not start because this browser could not save the request.')
+      setPinBusy(false)
+      return
+    }
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: coordinatorEmail,
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo: `${window.location.origin}/group-dashboard`,
+        },
+      })
+      if (error) throw error
+      setPinResetEmailSent(true)
+      notify('A PIN recovery link has been sent to the coordinator email on this account.', 'success')
+    } catch (error) {
+      console.error('Could not send coordinator PIN recovery email:', error)
+      try {
+        window.localStorage.removeItem(pinResetRequestStorageKey(session.user.id))
+      } catch (storageError) {
+        console.error('Could not clear failed coordinator PIN recovery request:', storageError)
+      }
+      setPinError('The recovery email could not be sent. Please wait a moment and try again.')
+    } finally {
+      setPinBusy(false)
     }
   }
 
@@ -713,8 +1081,10 @@ export default function SupportGroupDashboardPage() {
       notify('Member added. Sensitive identifiers remain masked in the dashboard.', 'success')
       const { data, error: reloadError } = await supabase
         .from('supporter_registrations')
-        .select('id,full_name,phone,email,state,lga,ward,vin_status,created_at')
+        .select('id,full_name,phone,email,state,lga,ward,vin_status,member_approval_status,created_at')
         .eq('support_group_id', group.id)
+        .eq('registration_type', 'group_member')
+        .eq('member_approval_status', 'approved')
         .order('created_at', { ascending: false })
       if (reloadError) throw reloadError
       if (!Array.isArray(data) || !data.every(isGroupMember)) throw new Error('The group member list returned an invalid response.')
@@ -728,6 +1098,63 @@ export default function SupportGroupDashboardPage() {
           : 'The member could not be added. Check the details and consent, and confirm the latest database schema and private photo storage are installed.', 'error')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const reviewMemberApplication = async (application: GroupMember, decision: 'approve' | 'reject') => {
+    if (!supabase || !group || reviewingApplicationId !== null) return
+    setReviewingApplicationId(application.id)
+    setToast(null)
+    let decisionSaved = false
+    try {
+      const { data: result, error } = await supabase.rpc('review_group_member_application', {
+        p_registration_id: application.id,
+        p_decision: decision,
+      })
+      if (error) throw error
+      const expectedStatus = decision === 'approve' ? 'approved' : 'rejected'
+      if (result !== expectedStatus) throw new Error('The review status response was invalid.')
+      decisionSaved = true
+
+      const [membersResult, pendingMembersResult] = await Promise.all([
+        supabase
+          .from('supporter_registrations')
+          .select('id,full_name,phone,email,state,lga,ward,vin_status,member_approval_status,created_at')
+          .eq('support_group_id', group.id)
+          .eq('registration_type', 'group_member')
+          .eq('member_approval_status', 'approved')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('supporter_registrations')
+          .select('id,full_name,phone,email,state,lga,ward,vin_status,member_approval_status,created_at')
+          .eq('support_group_id', group.id)
+          .eq('registration_type', 'group_member')
+          .eq('member_approval_status', 'pending')
+          .order('created_at', { ascending: false }),
+      ])
+      if (
+        membersResult.error || pendingMembersResult.error ||
+        !Array.isArray(membersResult.data) || !membersResult.data.every(isGroupMember) ||
+        !Array.isArray(pendingMembersResult.data) || !pendingMembersResult.data.every(isGroupMember)
+      ) {
+        throw new Error('The member application was reviewed, but the group list could not be refreshed.')
+      }
+
+      setMembers(membersResult.data)
+      setPendingMembers(pendingMembersResult.data)
+      setSelectedMember(null)
+      notify(decision === 'approve'
+        ? `${application.full_name} approved. Their member ID card and QR verification are now active.`
+        : `${application.full_name}'s application was declined.`, 'success')
+    } catch (error) {
+      console.error(`Could not ${decision} support-group member application:`, error)
+      notify(decisionSaved
+        ? 'The decision was saved, but the member list could not be refreshed. Reload the dashboard to confirm.'
+        : decision === 'approve'
+          ? 'The application could not be approved. Refresh the dashboard and try again.'
+          : 'The application could not be declined. Refresh the dashboard and try again.', 'error')
+    } finally {
+      setReviewingApplicationId(null)
     }
   }
 
@@ -812,8 +1239,10 @@ export default function SupportGroupDashboardPage() {
     if (importedCount > 0) {
       const { data, error } = await supabase
         .from('supporter_registrations')
-        .select('id,full_name,phone,email,state,lga,ward,vin_status,created_at')
+        .select('id,full_name,phone,email,state,lga,ward,vin_status,member_approval_status,created_at')
         .eq('support_group_id', group.id)
+        .eq('registration_type', 'group_member')
+        .eq('member_approval_status', 'approved')
         .order('created_at', { ascending: false })
       if (error || !Array.isArray(data) || !data.every(isGroupMember)) {
         if (error) console.error('Could not refresh group members after import:', error.message)
@@ -989,6 +1418,20 @@ export default function SupportGroupDashboardPage() {
     }, 0)
   }
 
+  const memberRegistrationLink = group
+    ? new URL(`/register/group/${group.member_registration_token}`, window.location.origin).toString()
+    : ''
+
+  const copyMemberRegistrationLink = async () => {
+    try {
+      await navigator.clipboard.writeText(memberRegistrationLink)
+      notify('Group registration link copied. New applications will wait for your approval.', 'success')
+    } catch (error) {
+      console.error('Could not copy group registration link:', error)
+      notify('The link is shown below; select and copy it to share with members.', 'error')
+    }
+  }
+
   if (isMemberPreview) {
     const previewMember: GroupMemberDetails = {
       id: 1,
@@ -999,6 +1442,7 @@ export default function SupportGroupDashboardPage() {
       lga: 'Uyo',
       ward: 'Ward 1',
       vin_status: 'pending',
+      member_approval_status: 'approved',
       created_at: '2026-11-27T00:00:00.000Z',
       nin_masked: '*******4321',
       account_name: 'Sample Member',
@@ -1008,6 +1452,7 @@ export default function SupportGroupDashboardPage() {
       polling_unit_address: 'Sample Polling Unit, Ward 1',
       photo_path: null,
       photo_url: null,
+      member_verification_token: '00000000-0000-4000-8000-000000000001',
     }
 
     return (
@@ -1050,7 +1495,15 @@ export default function SupportGroupDashboardPage() {
       <header className="group-dashboard-header">
         <a href="/" className="group-dashboard-brand"><strong>AKPANUDOEDHE</strong><small>SUPPORT-GROUP PORTAL</small></a>
         <div className="group-header-actions">
-          {group && (
+          {group && (pinLocked || pinSetupRequired || pinResetAuthorized || pinServiceUnavailable) ? (
+            <div className="group-lock-header">
+              {group.logo_url
+                ? <img className="group-profile-avatar" src={group.logo_url} alt="" />
+                : <span className="group-profile-avatar" aria-hidden="true">{group.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span>}
+              <span>{group.name}</span>
+              <button type="button" onClick={() => void signOut()}>Log out</button>
+            </div>
+          ) : group && (
             <div className="group-header-menus" ref={headerMenusRef}>
               <div className="group-header-menu">
                 <button
@@ -1097,7 +1550,7 @@ export default function SupportGroupDashboardPage() {
                     <strong>{group.name}</strong>
                     <button type="button" onClick={() => { setHeaderMenuOpen(null); setSettingsOpen(true) }}>Group settings</button>
                     <a href="/privacy">Privacy notice</a>
-                    <button type="button" onClick={() => void signOut()}>Sign out</button>
+                    <button type="button" onClick={() => void signOut()}>Log out</button>
                   </div>
                 )}
               </div>
@@ -1126,6 +1579,50 @@ export default function SupportGroupDashboardPage() {
           <p className="group-loading" role="status">Loading your group dashboard…</p>
         ) : !group ? (
           <section className="group-panel"><h1>Verifying group access</h1><p role="status">Checking that this login belongs to a registered support-group coordinator…</p></section>
+        ) : pinServiceUnavailable ? (
+          <section className="group-panel group-pin-panel">
+            <span className="eyebrow">SECURE GROUP ACCESS</span>
+            <h1>PIN service unavailable</h1>
+            <p>The Supabase PIN status could not be checked, so group data is hidden. Try again later or sign out and sign in with your coordinator password.</p>
+            <button className="button button-primary" type="button" onClick={() => void signOut()}>Log out</button>
+            <p className="group-pin-privacy"><a href="/privacy">Privacy notice</a></p>
+          </section>
+        ) : pinLocked || pinSetupRequired || pinResetAuthorized ? (
+          <section className="group-panel group-pin-panel">
+            <span className="eyebrow">SECURE GROUP ACCESS</span>
+            {pinResetAuthorized ? (
+              <>
+                <h1>Verifying your email</h1>
+                <p role="status">Your recovery link is confirmed. Preparing a new device PIN…</p>
+              </>
+            ) : pinSetupRequired ? (
+              <>
+                <h1>Set a new device PIN</h1>
+                <p>Choose a four-digit PIN to unlock this device after inactivity. Supabase stores and verifies the PIN; this does not replace your coordinator email and password.</p>
+                <form className="group-form" onSubmit={(event) => void saveCoordinatorPin(event)}>
+                  <PinCodeInput label="New four-digit PIN" value={newPinDigits} onChange={setNewPinDigits} disabled={savingPin} autoFocus />
+                  <PinCodeInput label="Confirm four-digit PIN" value={confirmPinDigits} onChange={setConfirmPinDigits} disabled={savingPin} />
+                  {pinError && <p className="group-pin-error" role="alert">{pinError}</p>}
+                  <button className="button button-primary" type="submit" disabled={savingPin}>{savingPin ? 'Saving PIN…' : 'Save new PIN'}</button>
+                </form>
+              </>
+            ) : (
+              <>
+                <h1>Welcome back, {group.name}</h1>
+                <p>This dashboard was locked after 10 minutes without activity. Enter your device PIN to continue.</p>
+                <form className="group-form" onSubmit={(event) => void unlockWithPin(event)}>
+                  <PinCodeInput label="Four-digit device PIN" value={pinDigits} onChange={setPinDigits} disabled={pinBusy} autoFocus />
+                  {pinError && <p className="group-pin-error" role="alert">{pinError}</p>}
+                  {pinResetEmailSent && <p className="group-message" role="status">Check the coordinator email for the recovery link. Open it in this browser to choose a new PIN.</p>}
+                  <button className="button button-primary" type="submit" disabled={pinBusy}>{pinBusy ? 'Checking PIN…' : 'Unlock dashboard'}</button>
+                </form>
+                <button className="group-text-button group-pin-recovery" type="button" onClick={() => void requestPinReset()} disabled={pinBusy}>
+                  {pinResetEmailSent ? 'Send another recovery link' : 'Forgot PIN? Email me a reset link'}
+                </button>
+              </>
+            )}
+            <p className="group-pin-privacy"><a href="/privacy">Privacy notice</a> · Supabase stores and verifies this PIN; the PIN itself is not saved in this browser.</p>
+          </section>
         ) : (
           <>
             <section className="group-dashboard-grid">
@@ -1159,6 +1656,51 @@ export default function SupportGroupDashboardPage() {
               />
             ) : (
               <>
+                <section className="group-panel group-registration-link-panel" aria-labelledby="group-registration-link-heading">
+                  <div>
+                    <span className="eyebrow">INVITE NEW MEMBERS</span>
+                    <h2 id="group-registration-link-heading">Share your group registration link</h2>
+                    <p>Members can submit their name and contact details. Applications stay pending until you approve them; approved members receive an ID card with a QR verification code.</p>
+                  </div>
+                  <div className="group-registration-link-controls">
+                    <label className="group-registration-link-label">Registration link<input readOnly value={memberRegistrationLink} onFocus={(event) => event.currentTarget.select()} /></label>
+                    <button className="button button-outline" type="button" onClick={() => void copyMemberRegistrationLink()}>Copy link</button>
+                  </div>
+                </section>
+                <section className="group-panel group-applications-panel" aria-labelledby="group-applications-heading">
+                  <div className="group-panel-heading">
+                    <div className="group-member-title">
+                      <span className="eyebrow">MEMBER REVIEW</span>
+                      <div className="group-member-title-row"><h2 id="group-applications-heading">Registration applications</h2><span className="group-member-count">{pendingMembers.length} awaiting review</span></div>
+                      <p>Review member-submitted details before issuing a verified group ID card.</p>
+                    </div>
+                  </div>
+                  {pendingMembers.length === 0 ? (
+                    <div className="group-empty-state">
+                      <span className="group-empty-icon" aria-hidden="true">✓</span>
+                      <div><strong>No applications waiting</strong><p>New registrations from your group link will appear here for approval.</p></div>
+                    </div>
+                  ) : (
+                    <div className="group-application-list">
+                      {pendingMembers.map((application) => (
+                        <article className="group-application-card" key={application.id}>
+                          <div className="group-application-details">
+                            <strong>{application.full_name}</strong>
+                            <span>{application.phone}{application.email ? ` · ${application.email}` : ''}</span>
+                            <span>{application.state ? `${application.state} · ` : ''}{application.lga}, {application.ward}</span>
+                            <small>Submitted {new Date(application.created_at).toLocaleDateString('en-NG')}</small>
+                          </div>
+                          <div className="group-application-actions">
+                            <button className="button button-primary" type="button" disabled={reviewingApplicationId !== null} onClick={() => void reviewMemberApplication(application, 'approve')}>
+                              {reviewingApplicationId === application.id ? 'Saving…' : 'Approve & issue card'}
+                            </button>
+                            <button className="button button-outline" type="button" disabled={reviewingApplicationId !== null} onClick={() => void reviewMemberApplication(application, 'reject')}>Decline</button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
                 <section className="group-panel group-members-panel" id="group-members">
                   <div className="group-panel-heading">
                     <div className="group-member-title">
@@ -1297,7 +1839,36 @@ export default function SupportGroupDashboardPage() {
               <div><span className="eyebrow">SUPPORT-GROUP PROFILE</span><h2 id="group-settings-heading">Group settings</h2></div>
               <button ref={settingsCloseButtonRef} type="button" className="group-modal-close" onClick={() => setSettingsOpen(false)} aria-label="Close group settings">×</button>
             </header>
-            <p>Update the cover photo, group logo and image framing. Uploaded group images are public; use images intended for public display.</p>
+            <section className="group-settings-section">
+              <h3>Group name</h3>
+              <form className="group-form group-account-form" onSubmit={(event) => void saveGroupName(event)}>
+                <label>Displayed group name<input required minLength={2} maxLength={120} value={groupNameDraft} onChange={(event) => setGroupNameDraft(event.target.value)} /></label>
+                <button className="button button-primary" type="submit" disabled={savingGroupName}>{savingGroupName ? 'Saving…' : 'Save group name'}</button>
+              </form>
+            </section>
+            <section className="group-settings-section">
+              <h3>Coordinator password</h3>
+              <p>Confirm your current password before choosing a new one. Use at least 8 characters.</p>
+              <form className="group-form group-account-form" onSubmit={(event) => void changeCoordinatorPassword(event)}>
+                <label>Current password<input required type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label>
+                <label>New password<input required type="password" autoComplete="new-password" minLength={8} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label>
+                <label>Confirm new password<input required type="password" autoComplete="new-password" minLength={8} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>
+                <button className="button button-primary" type="submit" disabled={savingPassword}>{savingPassword ? 'Updating…' : 'Update password'}</button>
+              </form>
+            </section>
+            <section className="group-settings-section">
+              <h3>Optional device PIN</h3>
+              <p>Set a four-digit quick-unlock PIN for this group account. Supabase stores and verifies it; it is not saved in this browser. Your email and password remain the account sign-in. This device locks after 10 minutes without activity. The PIN does not encrypt data or replace account security.</p>
+              <form className="group-form group-account-form" onSubmit={(event) => void saveCoordinatorPin(event)}>
+                <PinCodeInput label="New four-digit PIN" value={newPinDigits} onChange={setNewPinDigits} disabled={savingPin} />
+                <PinCodeInput label="Confirm four-digit PIN" value={confirmPinDigits} onChange={setConfirmPinDigits} disabled={savingPin} />
+                {pinError && <p className="group-pin-error" role="alert">{pinError}</p>}
+                <button className="button button-primary" type="submit" disabled={savingPin}>{savingPin ? 'Saving PIN…' : pinEnabled ? 'Update group PIN' : 'Set group PIN'}</button>
+              </form>
+            </section>
+            <section className="group-settings-section">
+              <h3>Group images</h3>
+              <p>Uploaded group images are public; use images intended for public display.</p>
             <div className="group-profile-preview group-settings-preview">
               <div className="group-cover-preview">
                 {group.photo_url ? <img src={group.photo_url} alt={`${group.name} cover`} style={{ transform: `scale(${photoScale})` }} /> : <span>Upload a group cover photo</span>}
@@ -1316,6 +1887,7 @@ export default function SupportGroupDashboardPage() {
             </div>
             <button className="button button-primary group-save-images" type="button" onClick={() => void saveImageSettings()} disabled={savingImageSettings}>{savingImageSettings ? 'Saving…' : 'Save image framing'}</button>
             {uploading && <p className="group-message" role="status">Uploading {uploading}…</p>}
+            </section>
           </section>
         </div>
       )}
@@ -1325,7 +1897,7 @@ export default function SupportGroupDashboardPage() {
           <button type="button" onClick={() => setToast(null)} aria-label="Dismiss notification">×</button>
         </div>
       )}
-      <MobileBottomNav
+      {(!group || (!pinLocked && !pinSetupRequired && !pinResetAuthorized && !pinServiceUnavailable)) && <MobileBottomNav
         items={group ? [
           { label: 'Overview', icon: '⌂', onClick: () => navigateToGroupSection('group-overview', 'Overview') },
           { label: 'Members', icon: '♙', onClick: () => navigateToGroupSection('group-members', 'Members') },
@@ -1339,7 +1911,7 @@ export default function SupportGroupDashboardPage() {
           { label: 'Group settings', icon: '⚙', onClick: () => { setActiveGroupNav('Group settings'); setSettingsOpen(true) } },
           { label: 'Privacy notice', icon: '◉', href: '/privacy' },
           { label: 'Campaign website', icon: '⌂', href: '/' },
-          { label: 'Sign out', icon: '↪', onClick: () => void signOut() },
+          { label: 'Log out', icon: '↪', onClick: () => void signOut() },
         ] : [
           { label: 'Campaign website', icon: '⌂', href: '/' },
           { label: 'Privacy notice', icon: '◉', href: '/privacy' },
@@ -1347,7 +1919,7 @@ export default function SupportGroupDashboardPage() {
         ]}
         activeLabel={group ? selectedMember ? 'Members' : activeGroupNav : 'Group login'}
         moreActive={Boolean(group && activeGroupNav === 'Group settings')}
-      />
+      />}
     </div>
   )
 }

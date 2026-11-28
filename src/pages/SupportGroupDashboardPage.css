@@ -300,3 +300,67 @@
 }
 .group-form .searchable-option { width:100%; min-width:0; }
 .group-form .searchable-option-trigger { height:43px; padding:0 11px; font:inherit; }
+.group-lock-header { min-width:0; display:flex; align-items:center; gap:9px; color:var(--ink); font-size:10px; }
+.group-lock-header>span:not(.group-profile-avatar) { max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.group-lock-header>button { min-height:36px; padding:0 11px; border:1px solid var(--line); border-radius:5px; background:var(--paper); color:var(--teal); font:inherit; font-size:10px; font-weight:700; cursor:pointer; }
+.group-lock-header>button:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
+.group-pin-panel { max-width:470px !important; }
+.group-pin-panel>.eyebrow { color:var(--teal); font-size:9px; font-weight:750; letter-spacing:1.4px; }
+.group-pin-panel .group-form { gap:18px; }
+.group-pin-panel .group-form>.button { width:100%; }
+.group-pin-fieldset { min-width:0; margin:0; padding:0; border:0; }
+.group-pin-fieldset legend { margin-bottom:9px; color:#343b35; font-size:10px; font-weight:700; }
+.group-pin-inputs { display:flex; gap:10px; }
+.group-pin-inputs input { width:62px; min-height:58px; padding:0; border:1px solid #d5d9d2; border-radius:6px; background:#fff; color:var(--ink); font:700 23px/1 system-ui,sans-serif; text-align:center; }
+.group-pin-inputs input:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
+.group-pin-fieldset:disabled .group-pin-inputs input { opacity:.65; }
+.group-pin-error { margin:0; color:#913a31 !important; font-size:10px !important; }
+.group-pin-recovery { margin-top:18px; }
+.group-pin-privacy { margin-top:20px; font-size:10px !important; }
+.group-pin-privacy a { color:var(--teal); }
+.group-registration-link-panel { display:grid; grid-template-columns:minmax(0,1fr) minmax(280px,420px); align-items:center; gap:24px; margin-bottom:18px; }
+.group-registration-link-panel h2 { margin:8px 0; }
+.group-registration-link-panel p,.group-applications-panel .group-member-title>p { margin:0; color:var(--muted); font-size:11px; line-height:1.6; }
+.group-registration-link-controls { display:flex; align-items:end; gap:10px; min-width:0; }
+.group-registration-link-label { flex:1; min-width:0; display:grid; gap:7px; color:#343b35; font-size:10px; font-weight:700; }
+.group-registration-link-label input { width:100%; min-width:0; height:40px; padding:0 10px; border:1px solid var(--line); border-radius:4px; background:#fff; color:var(--ink); font:10px "Segoe UI",sans-serif; }
+.group-registration-link-controls .button { min-height:40px; flex:0 0 auto; padding:0 13px; font-size:9px; }
+.group-applications-panel { margin-bottom:18px; }
+.group-applications-panel .group-panel-heading { margin-bottom:16px; }
+.group-application-list { display:grid; gap:10px; margin-top:16px; }
+.group-application-card { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:15px; border:1px solid var(--line); border-radius:7px; background:#fff; }
+.group-application-details { min-width:0; display:grid; gap:5px; }
+.group-application-details>strong { color:var(--ink); font-size:12px; }
+.group-application-details>span,.group-application-details>small { color:var(--muted); font-size:10px; line-height:1.5; overflow-wrap:anywhere; }
+.group-application-actions { display:flex; flex:0 0 auto; gap:8px; }
+.group-application-actions .button { min-height:36px; padding:0 11px; font-size:9px; }
+.group-member-id-verification { min-height:100px; display:flex; align-items:center; gap:13px; padding:10px 14px; border-top:1px solid #e6e9e1; border-bottom:1px solid #e6e9e1; background:#fff; }
+.group-member-id-verification svg { flex:0 0 auto; width:82px; height:82px; }
+.group-member-id-verification>div { display:grid; gap:5px; }
+.group-member-id-verification strong { color:var(--teal); font-size:9px; letter-spacing:.5px; }
+.group-member-id-verification span { color:var(--muted); font-size:9px; line-height:1.45; }
+.group-settings-modal { width:min(660px,100%); }
+.group-settings-section { margin-top:22px; padding-top:20px; border-top:1px solid var(--line); }
+.group-settings-section>h3 { margin:0; font:400 18px/1.2 Georgia,serif; }
+.group-settings-section>p { margin:8px 0 0; font-size:10px; }
+.group-settings-section .group-account-form { margin-top:13px; }
+.group-settings-section .group-account-form>.button { width:max-content; }
+.group-settings-section .group-image-controls { margin-top:10px; }
+.group-settings-section .group-image-upload { margin-top:13px; }
+.group-settings-section .group-save-images { margin-top:14px; }
+@media(max-width:650px) {
+  .group-registration-link-panel { grid-template-columns:1fr; gap:16px; }
+  .group-registration-link-controls { align-items:stretch; flex-direction:column; }
+  .group-registration-link-controls .button { width:100%; }
+  .group-application-card { align-items:stretch; flex-direction:column; gap:12px; }
+  .group-application-actions { display:grid; grid-template-columns:1fr 1fr; }
+  .group-application-actions .button { min-width:0; padding:0 7px; }
+  .group-lock-header { gap:6px; }
+  .group-lock-header .group-profile-avatar { width:27px; height:27px; }
+  .group-lock-header>span:not(.group-profile-avatar) { max-width:105px; font-size:9px; }
+  .group-lock-header>button { min-height:34px; padding:0 8px; font-size:9px; }
+  .group-pin-inputs { gap:8px; }
+  .group-pin-inputs input { width:54px; min-height:54px; font-size:21px; }
+  .group-settings-section { margin-top:18px; padding-top:17px; }
+  .group-settings-section .group-account-form>.button { width:100%; }
+}
