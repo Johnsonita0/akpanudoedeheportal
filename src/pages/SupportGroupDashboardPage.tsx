@@ -178,14 +178,19 @@ function parseMemberCsv(source: string): GroupMemberDraft[] {
   })
 }
 
-function validateMemberDraft(draft: GroupMemberDraft): string[] {
+function validateMemberDraft(draft: GroupMemberDraft, basicImport = false): string[] {
   const errors: string[] = []
   const phoneDigits = draft.phone.replace(/\D/g, '')
   if (draft.full_name.length < 2 || draft.full_name.length > 120) errors.push('Name must be 2–120 characters.')
   if (!/^[+0-9 ().-]{7,30}$/.test(draft.phone) || phoneDigits.length < 7) errors.push('Phone number is invalid.')
   if (draft.email && (draft.email.length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(draft.email))) errors.push('Email address is invalid.')
   if (!lgas.includes(draft.lga)) errors.push('Local Government Area is invalid.')
-  if (!wards.includes(draft.ward)) errors.push('Ward is invalid.')
+  if (basicImport ? draft.ward.length < 1 || draft.ward.length > 100 : !wards.includes(draft.ward)) errors.push('Ward is invalid.')
+  if (basicImport) {
+    if (draft.residential_address.length < 2 || draft.residential_address.length > 500) errors.push('Residential address must be 2–500 characters.')
+    if (draft.polling_unit_address.length > 500) errors.push('Polling unit address must be 500 characters or fewer.')
+    return errors
+  }
   if (draft.vin.length < 5 || draft.vin.length > 40 || !/^[A-Za-z0-9 -]+$/.test(draft.vin)) errors.push('VIN must be 5–40 letters, numbers, spaces or hyphens.')
   if (!/^[0-9]{11}$/.test(draft.nin)) errors.push('NIN must contain 11 digits.')
   if (draft.account_name.length < 2 || draft.account_name.length > 120) errors.push('Account name must be 2–120 characters.')
@@ -699,7 +704,7 @@ export default function SupportGroupDashboardPage() {
         rowNumber: index + 2,
         draft,
         photo: null,
-        errors: validateMemberDraft(draft),
+        errors: validateMemberDraft(draft, true),
         imported: false,
       })))
       setImportTotal(drafts.length)
@@ -726,7 +731,7 @@ export default function SupportGroupDashboardPage() {
     }
 
     const readyRows = pending.map((row) => {
-      const errors = [...validateMemberDraft(row.draft)]
+      const errors = [...validateMemberDraft(row.draft, true)]
       if (!row.photo) errors.push('Attach a member photo.')
       else if (!['image/jpeg', 'image/png', 'image/webp'].includes(row.photo.type) || row.photo.size > 5 * 1024 * 1024) {
         errors.push('Photo must be JPG, PNG or WebP under 5 MB.')
@@ -1158,7 +1163,7 @@ export default function SupportGroupDashboardPage() {
                       {!row.imported && (
                         <label className="group-import-photo">Member photo *<input type="file" accept="image/png,image/jpeg,image/webp" disabled={importingMembers} onChange={(event) => {
                           const photo = event.target.files?.[0] ?? null
-                          setImportRows((rows) => rows.map((item) => item.rowNumber === row.rowNumber ? { ...item, photo, errors: validateMemberDraft(item.draft) } : item))
+                          setImportRows((rows) => rows.map((item) => item.rowNumber === row.rowNumber ? { ...item, photo, errors: validateMemberDraft(item.draft, true) } : item))
                         }} />{row.photo && <span>{row.photo.name}</span>}</label>
                       )}
                     </article>
