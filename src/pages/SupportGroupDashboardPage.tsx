@@ -570,7 +570,7 @@ export default function SupportGroupDashboardPage() {
     setToast(null)
   }
 
-  const saveGroupMemberRecord = async (draft: GroupMemberDraft, photo: File) => {
+  const saveGroupMemberRecord = async (draft: GroupMemberDraft, photo: File, basicImport = false) => {
     if (!supabase || !group || !session) throw new Error('Group session is unavailable.')
     const extensions: Record<string, string> = {
       'image/jpeg': 'jpg',
@@ -586,15 +586,29 @@ export default function SupportGroupDashboardPage() {
     let photoUploaded = false
     let memberSaved = false
     try {
+      const photoBucket = basicImport ? 'support-group-member-import-photos' : 'support-group-member-photos'
       const { error: uploadError } = await supabase.storage
-        .from('support-group-member-photos')
+        .from(photoBucket)
         .upload(photoPath, photo, { contentType: photo.type, upsert: false })
       if (uploadError) throw uploadError
       photoUploaded = true
 
-      const { error } = await supabase.rpc('register_group_member_with_private_details', {
-        p_group_id: group.id,
-        p_member_data: {
+      const rpcName = basicImport
+        ? 'register_basic_support_group_member'
+        : 'register_group_member_with_private_details'
+      const memberData = basicImport
+        ? {
+            full_name: draft.full_name.trim(),
+            phone: draft.phone.trim(),
+            email: draft.email.trim(),
+            lga: draft.lga,
+            ward: draft.ward,
+            residential_address: draft.residential_address.trim(),
+            polling_unit_address: draft.polling_unit_address.trim(),
+            photo_path: photoPath,
+            consent: true,
+          }
+        : {
           full_name: draft.full_name.trim(),
           phone: draft.phone.trim(),
           email: draft.email.trim(),
@@ -609,14 +623,17 @@ export default function SupportGroupDashboardPage() {
           polling_unit_address: draft.polling_unit_address.trim(),
           photo_path: photoPath,
           consent: true,
-        },
+        }
+      const { error } = await supabase.rpc(rpcName, {
+        p_group_id: group.id,
+        p_member_data: memberData,
       })
       if (error) throw error
       memberSaved = true
     } catch (error) {
       if (photoUploaded && !memberSaved) {
         const { error: cleanupError } = await supabase.storage
-          .from('support-group-member-photos')
+          .from(basicImport ? 'support-group-member-import-photos' : 'support-group-member-photos')
           .remove([photoPath])
         if (cleanupError) console.error('Could not remove the unused member photo:', cleanupError.message)
       }
@@ -734,7 +751,7 @@ export default function SupportGroupDashboardPage() {
       const row = readyRows[index]
       if (!row.photo) continue
       try {
-        await saveGroupMemberRecord(row.draft, row.photo)
+        await saveGroupMemberRecord(row.draft, row.photo, true)
         importedCount += 1
         setImportRows((rows) => rows.map((current) => current.rowNumber === row.rowNumber
           ? { ...current, imported: true, errors: [] }
@@ -797,8 +814,14 @@ export default function SupportGroupDashboardPage() {
         const { data: signedPhoto, error: photoError } = await supabase.storage
           .from('support-group-member-photos')
           .createSignedUrl(details.photo_path, 300)
-        if (photoError) throw photoError
-        photoUrl = signedPhoto.signedUrl
+        if (!photoError && signedPhoto?.signedUrl) {
+          photoUrl = signedPhoto.signedUrl
+        } else {
+          const { data: publicPhoto } = supabase.storage
+            .from('support-group-member-import-photos')
+            .getPublicUrl(details.photo_path)
+          photoUrl = publicPhoto.publicUrl
+        }
       }
       setSelectedMember({ ...details, photo_url: photoUrl })
     } catch {
