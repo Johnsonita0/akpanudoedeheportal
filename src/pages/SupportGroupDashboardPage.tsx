@@ -551,6 +551,12 @@ export default function SupportGroupDashboardPage() {
     }
   }, [authReady, session?.user.id, isMemberPreview, notify])
 
+  useEffect(() => {
+    if (selectedMember) {
+      document.querySelector('.group-member-details-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [selectedMember])
+
   const signIn = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!supabase) {
@@ -1177,7 +1183,21 @@ export default function SupportGroupDashboardPage() {
                         <tbody>
                           {members.map((item) => (
                             <tr key={item.id}>
-                              <th scope="row"><strong>{item.full_name}</strong><small>Added {new Date(item.created_at).toLocaleDateString('en-NG')}</small></th>
+                              <th scope="row">
+                                <button
+                                  className="group-member-open group-member-open-card"
+                                  type="button"
+                                  disabled={loadingMemberId !== null}
+                                  onClick={() => void openMemberDetails(item)}
+                                  aria-label={`View full details and ID card for ${item.full_name}`}
+                                >
+                                  <strong>{item.full_name}</strong>
+                                  <small>Added {new Date(item.created_at).toLocaleDateString('en-NG')}</small>
+                                  <span className="group-member-mobile-meta">{item.state ? `${item.state} · ` : ''}{item.lga}, {item.ward}</span>
+                                  <span className={`group-member-mobile-status group-member-status status-${item.vin_status}`}>{item.vin_status === 'verified' ? 'Verified' : item.vin_status === 'not_verified' ? 'Not verified' : 'Pending'}</span>
+                                  <span className="group-member-mobile-action">View full details and ID card →</span>
+                                </button>
+                              </th>
                               <td>{maskPhone(item.phone)}</td>
                               <td>{item.state ? `${item.state} · ` : ''}{item.lga}, {item.ward}</td>
                               <td><span className={`group-member-status status-${item.vin_status}`}>{item.vin_status === 'verified' ? 'Verified' : item.vin_status === 'not_verified' ? 'Not verified' : 'Pending'}</span></td>
