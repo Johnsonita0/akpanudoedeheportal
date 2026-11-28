@@ -170,3 +170,5 @@ html:not(.aos-enabled) [data-aos] { opacity: 1 !important; transform: none !impo
   .site-brand strong,.site-brand small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .header-join { justify-self: end; max-width: 40vw; padding: 0 8px; font-size: clamp(8px,2.5vw,9px); }
 }
+.contact-form .searchable-option { width:100%; min-width:0; }
+.contact-form .searchable-option-trigger { height:46px; padding:0 12px; font:inherit; }

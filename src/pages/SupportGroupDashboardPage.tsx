@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import MobileBottomNav from '../components/MobileBottomNav'
+import NigeriaStateSelect from '../components/NigeriaStateSelect'
 import SearchableLgaSelect from '../components/SearchableLgaSelect'
-import { lgas, wards } from '../campaignData'
+import SearchableOptionSelect from '../components/SearchableOptionSelect'
+import { wards } from '../campaignData'
+import { canonicalLocation, inferStateForLga, isValidLocation } from '../nigeriaLocations'
 import { supabase } from '../supabase'
 import adcLogo from '../assets/adc-logo-from-campaign-poster.png'
 import akwaIbomLogo from '../assets/akwa-ibom-state-emblem.png'
@@ -12,6 +15,7 @@ import './SupportGroupDashboardPage.css'
 type SupportGroup = {
   id: number
   name: string
+  state: string | null
   lga: string
   status: 'pending' | 'approved' | 'suspended'
   logo_url: string | null
@@ -25,6 +29,7 @@ type GroupMember = {
   full_name: string
   phone: string
   email: string | null
+  state: string | null
   lga: string
   ward: string
   vin_status: 'pending' | 'verified' | 'not_verified'
@@ -46,6 +51,7 @@ type GroupMemberDraft = {
   full_name: string
   phone: string
   email: string
+  state: string
   lga: string
   ward: string
   vin: string
@@ -74,6 +80,7 @@ const emptyGroupMember: GroupMemberDraft = {
   full_name: '',
   phone: '',
   email: '',
+  state: '',
   lga: '',
   ward: '',
   vin: '',
@@ -89,6 +96,7 @@ const memberCsvColumns = [
   'full_name',
   'phone',
   'email',
+  'state',
   'lga',
   'ward',
   'vin',
@@ -151,7 +159,7 @@ function parseMemberCsv(source: string): GroupMemberDraft[] {
 
   const headers = rows[0].map((header) => header.trim().toLowerCase())
   const columnIndexes = memberCsvColumns.map((column) => headers.indexOf(column))
-  const missingColumns = memberCsvColumns.filter((_, index) => columnIndexes[index] === -1)
+  const missingColumns = memberCsvColumns.filter((column, index) => column !== 'state' && columnIndexes[index] === -1)
   if (missingColumns.length) throw new Error(`Missing CSV columns: ${missingColumns.join(', ')}.`)
   const duplicateColumns = memberCsvColumns.filter((column) => headers.filter((header) => header === column).length > 1)
   if (duplicateColumns.length) throw new Error(`Duplicate CSV columns: ${[...new Set(duplicateColumns)].join(', ')}.`)
@@ -161,19 +169,22 @@ function parseMemberCsv(source: string): GroupMemberDraft[] {
       throw new Error(`CSV row ${index + 2} has more columns than the template.`)
     }
     const values = memberCsvColumns.map((_, columnIndex) => (cells[columnIndexes[columnIndex]] ?? '').trim())
+    const stateInput = values[3] || inferStateForLga(values[4]) || ''
+    const location = canonicalLocation(stateInput, values[4])
     return {
       full_name: values[0],
       phone: values[1],
       email: values[2],
-      lga: values[3],
-      ward: values[4],
-      vin: values[5],
-      nin: values[6],
-      account_name: values[7],
-      account_number: values[8],
-      bank_name: values[9],
-      residential_address: values[10],
-      polling_unit_address: values[11],
+      state: location?.state ?? stateInput,
+      lga: location?.lga ?? values[4],
+      ward: values[5],
+      vin: values[6],
+      nin: values[7],
+      account_name: values[8],
+      account_number: values[9],
+      bank_name: values[10],
+      residential_address: values[11],
+      polling_unit_address: values[12],
     }
   })
 }
@@ -184,9 +195,10 @@ function validateMemberDraft(draft: GroupMemberDraft, basicImport = false): stri
   if (draft.full_name.length < 2 || draft.full_name.length > 120) errors.push('Name must be 2–120 characters.')
   if (!/^[+0-9 ().-]{7,30}$/.test(draft.phone) || phoneDigits.length < 7) errors.push('Phone number is invalid.')
   if (draft.email && (draft.email.length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(draft.email))) errors.push('Email address is invalid.')
+  if (!draft.state) errors.push('State is required.')
   if (basicImport
-    ? draft.lga.trim().length < 2 || draft.lga.length > 100
-    : !lgas.includes(draft.lga)) errors.push('Local Government Area is invalid.')
+    ? draft.lga.trim().length < 2 || draft.lga.length > 100 || !isValidLocation(draft.state, draft.lga)
+    : !isValidLocation(draft.state, draft.lga)) errors.push('State and Local Government Area must be a valid pair.')
   if (basicImport ? draft.ward.length < 1 || draft.ward.length > 100 : !wards.includes(draft.ward)) errors.push('Ward is invalid.')
   if (basicImport) {
     if (draft.residential_address.length < 2 || draft.residential_address.length > 500) errors.push('Residential address must be 2–500 characters.')
@@ -218,6 +230,7 @@ function isSupportGroup(value: unknown): value is SupportGroup {
   const row = value as Record<string, unknown>
   return Number.isSafeInteger(row.id) &&
     typeof row.name === 'string' &&
+    (row.state === null || typeof row.state === 'string') &&
     typeof row.lga === 'string' &&
     (row.status === 'pending' || row.status === 'approved' || row.status === 'suspended') &&
     (row.logo_url === null || typeof row.logo_url === 'string') &&
@@ -233,6 +246,7 @@ function isGroupMember(value: unknown): value is GroupMember {
     typeof row.full_name === 'string' &&
     typeof row.phone === 'string' &&
     (row.email === null || typeof row.email === 'string') &&
+    (row.state === null || typeof row.state === 'string') &&
     typeof row.lga === 'string' &&
     typeof row.ward === 'string' &&
     (row.vin_status === 'pending' || row.vin_status === 'verified' || row.vin_status === 'not_verified') &&
@@ -307,7 +321,7 @@ function GroupMemberDetailView({
               <span>MEMBER ID</span>
               <strong>SG-{String(member.id).padStart(6, '0')}</strong>
               <h2>{member.full_name}</h2>
-              <p>{member.lga} · {member.ward}</p>
+              <p>{member.state ? `${member.state} · ` : ''}{member.lga} · {member.ward}</p>
               <p className="group-member-id-phone">{maskPhone(member.phone)}</p>
             </div>
           </div>
@@ -484,7 +498,7 @@ export default function SupportGroupDashboardPage() {
       if (!supabase) return
       const { data: groupData, error: groupError } = await supabase
         .from('support_groups')
-        .select('id,name,lga,status,logo_url,photo_url,logo_scale,photo_scale')
+        .select('id,name,state,lga,status,logo_url,photo_url,logo_scale,photo_scale')
         .eq('owner_user_id', session.user.id)
         .maybeSingle()
       if (!active) return
@@ -511,7 +525,7 @@ export default function SupportGroupDashboardPage() {
 
       const { data: memberData, error: memberError } = await supabase
         .from('supporter_registrations')
-        .select('id,full_name,phone,email,lga,ward,vin_status,created_at')
+        .select('id,full_name,phone,email,state,lga,ward,vin_status,created_at')
         .eq('support_group_id', groupData.id)
         .order('created_at', { ascending: false })
       if (!active) return
@@ -628,6 +642,7 @@ export default function SupportGroupDashboardPage() {
             full_name: draft.full_name.trim(),
             phone: draft.phone.trim(),
             email: draft.email.trim(),
+            state: draft.state,
             lga: draft.lga,
             ward: draft.ward,
             residential_address: draft.residential_address.trim(),
@@ -639,6 +654,7 @@ export default function SupportGroupDashboardPage() {
           full_name: draft.full_name.trim(),
           phone: draft.phone.trim(),
           email: draft.email.trim(),
+          state: draft.state,
           lga: draft.lga,
           ward: draft.ward,
           vin: draft.vin.trim(),
@@ -691,7 +707,7 @@ export default function SupportGroupDashboardPage() {
       notify('Member added. Sensitive identifiers remain masked in the dashboard.', 'success')
       const { data, error: reloadError } = await supabase
         .from('supporter_registrations')
-        .select('id,full_name,phone,email,lga,ward,vin_status,created_at')
+        .select('id,full_name,phone,email,state,lga,ward,vin_status,created_at')
         .eq('support_group_id', group.id)
         .order('created_at', { ascending: false })
       if (reloadError) throw reloadError
@@ -791,7 +807,7 @@ export default function SupportGroupDashboardPage() {
     if (importedCount > 0) {
       const { data, error } = await supabase
         .from('supporter_registrations')
-        .select('id,full_name,phone,email,lga,ward,vin_status,created_at')
+        .select('id,full_name,phone,email,state,lga,ward,vin_status,created_at')
         .eq('support_group_id', group.id)
         .order('created_at', { ascending: false })
       if (error || !Array.isArray(data) || !data.every(isGroupMember)) {
@@ -974,6 +990,7 @@ export default function SupportGroupDashboardPage() {
       full_name: 'Sample Member',
       phone: '+234 800 000 0042',
       email: 'member@example.test',
+      state: 'Akwa Ibom',
       lga: 'Uyo',
       ward: 'Ward 1',
       vin_status: 'pending',
@@ -1118,7 +1135,7 @@ export default function SupportGroupDashboardPage() {
                   <div className="group-dashboard-identity-copy">
                     <span className="eyebrow">SUPPORT-GROUP DASHBOARD</span>
                     <h1>{group.name}</h1>
-                    <p>{group.lga} Local Government Area</p>
+                    <p>{group.lga} LGA{group.state ? ` · ${group.state}` : ''}</p>
                     <p className={`group-identity-status status-${group.status}`} role="status">
                       {group.status === 'approved' ? 'Approved and public' : group.status === 'suspended' ? 'Suspended' : 'Pending review'}
                       {group.status === 'pending' && ' — public listing starts after campaign review.'}
@@ -1163,7 +1180,7 @@ export default function SupportGroupDashboardPage() {
                             <tr key={item.id}>
                               <th scope="row"><strong>{item.full_name}</strong><small>Added {new Date(item.created_at).toLocaleDateString('en-NG')}</small></th>
                               <td>{maskPhone(item.phone)}</td>
-                              <td>{item.lga}, {item.ward}</td>
+                              <td>{item.state ? `${item.state} · ` : ''}{item.lga}, {item.ward}</td>
                               <td><span className={`group-member-status status-${item.vin_status}`}>{item.vin_status === 'verified' ? 'Verified' : item.vin_status === 'not_verified' ? 'Not verified' : 'Pending'}</span></td>
                               <td><button className="group-member-open" type="button" disabled={loadingMemberId !== null} onClick={() => void openMemberDetails(item)} aria-label={`View details for ${item.full_name}`}>{loadingMemberId === item.id ? 'Loading…' : 'View details →'}</button></td>
                             </tr>
@@ -1191,8 +1208,9 @@ export default function SupportGroupDashboardPage() {
               <label>Member full name *<input required maxLength={120} value={member.full_name} onChange={(event) => setMember({ ...member, full_name: event.target.value })} /></label>
               <label>Phone number *<input required type="tel" value={member.phone} onChange={(event) => setMember({ ...member, phone: event.target.value })} /></label>
               <label>Email <span>(optional)</span><input type="email" value={member.email} onChange={(event) => setMember({ ...member, email: event.target.value })} /></label>
-              <label>Local Government Area *<SearchableLgaSelect required name="member_lga" value={member.lga} onChange={(lga) => setMember({ ...member, lga, ward: '' })} /></label>
-              <label>Ward *<select required value={member.ward} onChange={(event) => setMember({ ...member, ward: event.target.value })} disabled={!member.lga}><option value="">Select ward</option>{wards.map((item) => <option key={item}>{item}</option>)}</select></label>
+              <label>State *<NigeriaStateSelect required name="member_state" value={member.state} onChange={(state) => setMember({ ...member, state, lga: '', ward: '' })} /></label>
+              <label>Local Government Area *<SearchableLgaSelect required name="member_lga" state={member.state} value={member.lga} onChange={(lga) => setMember({ ...member, lga, ward: '' })} /></label>
+              <label>Ward *<SearchableOptionSelect options={wards.map((ward) => ({ value: ward, label: ward }))} required value={member.ward} onChange={(ward) => setMember({ ...member, ward })} disabled={!member.lga} placeholder={member.lga ? 'Select ward' : 'Select an LGA first'} searchLabel="Search wards" searchPlaceholder="Search ward" /></label>
               <label>Voter identification number (VIN) *<input required autoComplete="off" minLength={5} maxLength={40} pattern="[A-Za-z0-9 -]{5,40}" value={member.vin} onChange={(event) => setMember({ ...member, vin: event.target.value })} /></label>
               <label>National identification number (NIN) *<input required inputMode="numeric" autoComplete="off" maxLength={11} pattern="[0-9]{11}" value={member.nin} onChange={(event) => setMember({ ...member, nin: event.target.value })} /></label>
               <label>Account name *<input required maxLength={120} value={member.account_name} onChange={(event) => setMember({ ...member, account_name: event.target.value })} /></label>
@@ -1231,7 +1249,7 @@ export default function SupportGroupDashboardPage() {
                     <article className={`group-import-row${row.imported ? ' imported' : ''}`} key={row.rowNumber}>
                       <div className="group-import-row-summary">
                         <strong>Row {row.rowNumber}: {row.draft.full_name || 'Name missing'}</strong>
-                        <span>{row.draft.lga || 'LGA missing'}{row.draft.ward ? ` · ${row.draft.ward}` : ''}</span>
+                        <span>{row.draft.state ? `${row.draft.state} · ` : ''}{row.draft.lga || 'LGA missing'}{row.draft.ward ? ` · ${row.draft.ward}` : ''}</span>
                         {row.imported ? <small>Imported</small> : row.errors.length > 0 ? <small className="group-import-error">{row.errors.join(' ')}</small> : <small>Ready for photo</small>}
                       </div>
                                       {!row.imported && (

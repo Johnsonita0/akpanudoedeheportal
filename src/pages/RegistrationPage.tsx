@@ -4,7 +4,9 @@ import { campaignName, wards } from '../campaignData'
 import adcLogo from '../assets/adc-logo-from-campaign-poster.png'
 import stateEmblem from '../assets/akwa-ibom-state-emblem.png'
 import MobileBottomNav from '../components/MobileBottomNav'
+import NigeriaStateSelect from '../components/NigeriaStateSelect'
 import SearchableLgaSelect from '../components/SearchableLgaSelect'
+import SearchableOptionSelect from '../components/SearchableOptionSelect'
 import { supabase } from '../supabase'
 import './RegistrationPage.css'
 
@@ -14,6 +16,7 @@ type Registration = {
   full_name: string
   phone: string
   email: string
+  state: string
   lga: string
   ward: string
   support_group_id: string
@@ -34,6 +37,7 @@ type PublicSupportGroup = {
 
 type GroupAccount = {
   name: string
+  state: string
   lga: string
   coordinatorName: string
   phone: string
@@ -60,6 +64,7 @@ export default function RegistrationPage() {
     full_name: '',
     phone: '',
     email: '',
+    state: '',
     lga: '',
     ward: '',
     support_group_id: '',
@@ -73,6 +78,7 @@ export default function RegistrationPage() {
   })
   const [groupAccount, setGroupAccount] = useState<GroupAccount>({
     name: '',
+    state: '',
     lga: '',
     coordinatorName: '',
     phone: '',
@@ -141,6 +147,7 @@ export default function RegistrationPage() {
             full_name: registration.full_name.trim(),
             phone: registration.phone.trim(),
             email: registration.email.trim(),
+            state: registration.state,
             lga: registration.lga,
             ward: registration.ward,
             support_group_id: registration.support_group_id ? Number(registration.support_group_id) : null,
@@ -193,6 +200,7 @@ export default function RegistrationPage() {
           data: {
             account_type: 'support_group',
             group_name: groupAccount.name.trim(),
+            group_state: groupAccount.state,
             group_lga: groupAccount.lga,
             coordinator_name: groupAccount.coordinatorName.trim(),
             coordinator_phone: groupAccount.phone.trim(),
@@ -260,9 +268,10 @@ export default function RegistrationPage() {
                   <label><span className="field-label">Email <span className="field-note">(optional)</span></span><input name="email" type="email" autoComplete="email" value={registration.email} onChange={(event) => setRegistration({ ...registration, email: event.target.value })} placeholder="you@example.com" /></label>
                 </div>}
                 {step === 1 && <div className="registration-fields">
-                  <label>Local Government Area *<SearchableLgaSelect required name="lga" value={registration.lga} onChange={(lga) => setRegistration({ ...registration, lga, ward: '' })} /></label>
-                  <label>Ward *<select required name="ward" value={registration.ward} onChange={(event) => setRegistration({ ...registration, ward: event.target.value })} disabled={!registration.lga}><option value="">{registration.lga ? 'Select ward' : 'Select an LGA first'}</option>{wards.map((item) => <option key={item}>{item}</option>)}</select></label>
-                  <label className="span-two"><span className="field-label">Support group <span className="field-note">(optional)</span></span><select name="support_group_id" value={registration.support_group_id} onChange={(event) => setRegistration({ ...registration, support_group_id: event.target.value })}><option value="">Register without a group</option>{supportGroups.map((group) => <option key={group.id} value={group.id}>{group.name} — {group.lga}</option>)}</select></label>
+                  <label>State *<NigeriaStateSelect required name="state" value={registration.state} onChange={(state) => setRegistration({ ...registration, state, lga: '', ward: '' })} /></label>
+                  <label>Local Government Area *<SearchableLgaSelect required name="lga" state={registration.state} value={registration.lga} onChange={(lga) => setRegistration({ ...registration, lga, ward: '' })} /></label>
+                  <label>Ward *<SearchableOptionSelect options={wards.map((ward) => ({ value: ward, label: ward }))} required name="ward" value={registration.ward} onChange={(ward) => setRegistration({ ...registration, ward })} disabled={!registration.lga} placeholder={registration.lga ? 'Select ward' : 'Select an LGA first'} searchLabel="Search wards" searchPlaceholder="Search ward" /></label>
+                  <label className="span-two"><span className="field-label">Support group <span className="field-note">(optional)</span></span><SearchableOptionSelect options={supportGroups.map((group) => ({ value: String(group.id), label: `${group.name} — ${group.lga}` }))} name="support_group_id" value={registration.support_group_id} onChange={(support_group_id) => setRegistration({ ...registration, support_group_id })} placeholder="Register without a group" searchLabel="Search support groups" searchPlaceholder="Search group" /></label>
                   {groupsMessage && <p className="registration-hint span-two" role="status">{groupsMessage}</p>}
                   <label className="span-two"><span className="field-label">Polling unit <span className="field-note">(optional)</span></span><input name="polling_unit" value={registration.polling_unit} onChange={(event) => setRegistration({ ...registration, polling_unit: event.target.value })} placeholder="Polling unit or nearby landmark" /></label>
                   <p className="registration-hint span-two">Ward names shown are illustrative. Please confirm your ward with your local election authority.</p>
@@ -297,7 +306,8 @@ export default function RegistrationPage() {
               <div className="form-step-heading"><span>SUPPORT-GROUP ACCOUNT</span><h2>Coordinator details</h2></div>
               <div className="registration-fields">
                 <label className="span-two">Support group name *<input required maxLength={120} value={groupAccount.name} onChange={(event) => setGroupAccount({ ...groupAccount, name: event.target.value })} autoComplete="organization" /></label>
-                <label>Local Government Area *<SearchableLgaSelect required name="group_lga" value={groupAccount.lga} onChange={(lga) => setGroupAccount({ ...groupAccount, lga })} /></label>
+                <label>State *<NigeriaStateSelect required name="group_state" value={groupAccount.state} onChange={(state) => setGroupAccount({ ...groupAccount, state, lga: '' })} /></label>
+                <label>Local Government Area *<SearchableLgaSelect required name="group_lga" state={groupAccount.state} value={groupAccount.lga} onChange={(lga) => setGroupAccount({ ...groupAccount, lga })} /></label>
                 <label>Coordinator full name *<input required maxLength={120} value={groupAccount.coordinatorName} onChange={(event) => setGroupAccount({ ...groupAccount, coordinatorName: event.target.value })} autoComplete="name" /></label>
                 <label>Coordinator phone number *<input required type="tel" autoComplete="tel" value={groupAccount.phone} onChange={(event) => setGroupAccount({ ...groupAccount, phone: event.target.value })} placeholder="+234" /></label>
                 <label>Group login email *<input required type="email" autoComplete="email" value={groupAccount.email} onChange={(event) => setGroupAccount({ ...groupAccount, email: event.target.value })} /></label>

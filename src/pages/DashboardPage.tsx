@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import MobileBottomNav from '../components/MobileBottomNav'
+import SearchableOptionSelect from '../components/SearchableOptionSelect'
 import { supabase } from '../supabase'
 import './DashboardPage.css'
 
@@ -10,6 +11,7 @@ type Supporter = {
   full_name: string
   phone: string
   email: string | null
+  state: string | null
   lga: string
   ward: string
   support_group_id: number | null
@@ -20,6 +22,7 @@ type Supporter = {
 type SupportGroup = {
   id: number
   name: string
+  state: string | null
   lga: string
   is_public: boolean
   status: 'pending' | 'approved' | 'suspended'
@@ -92,6 +95,7 @@ function isSupporter(value: unknown): value is Supporter {
     typeof value.full_name === 'string' &&
     typeof value.phone === 'string' &&
     (value.email === null || typeof value.email === 'string') &&
+    (value.state === null || typeof value.state === 'string') &&
     typeof value.lga === 'string' &&
     typeof value.ward === 'string' &&
     (value.support_group_id === null || Number.isSafeInteger(value.support_group_id)) &&
@@ -103,8 +107,9 @@ function isSupportGroup(value: unknown): value is SupportGroup {
   if (!isRecord(value)) return false
   return Number.isSafeInteger(value.id) &&
     typeof value.name === 'string' &&
+    (value.state === null || typeof value.state === 'string') &&
     typeof value.lga === 'string' &&
-  typeof value.is_public === 'boolean' &&
+    typeof value.is_public === 'boolean' &&
     (value.status === 'pending' || value.status === 'approved' || value.status === 'suspended') &&
     (value.coordinator_name === null || typeof value.coordinator_name === 'string') &&
     (value.coordinator_phone === null || typeof value.coordinator_phone === 'string') &&
@@ -203,7 +208,7 @@ function Overview({ data }: { data: DashboardData }) {
               {data.recentSupporters.map((person) => (
                 <div className="live-recent-row" key={person.id}>
                   <span className="supporter-initial">{person.full_name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span>
-                  <span><strong>{person.full_name}</strong><small>{person.lga} LGA · {formatDate(person.created_at)}</small></span>
+                  <span><strong>{person.full_name}</strong><small>{person.state ? `${person.state} · ` : ''}{person.lga} LGA · {formatDate(person.created_at)}</small></span>
                   <i className={`mini-status ${person.vin_status === 'verified' ? 'positive' : ''}`}>{person.vin_status.replace('_', ' ')}</i>
                 </div>
               ))}
@@ -222,7 +227,7 @@ function Overview({ data }: { data: DashboardData }) {
               {data.groups.slice(0, 6).map((group) => (
                 <div className="admin-group-row" key={group.id}>
                   <span className="group-icon">◎</span>
-                  <span><strong>{group.name}</strong><small>{group.lga} LGA</small></span>
+                  <span><strong>{group.name}</strong><small>{group.state ? `${group.state} · ` : ''}{group.lga} LGA</small></span>
                   <i className={`table-status ${group.status === 'approved' ? 'verified' : group.status === 'pending' ? 'pending' : ''}`}>{group.status}</i>
                 </div>
               ))}
@@ -262,7 +267,7 @@ function Supporters({ groupNames, refreshKey, onChange }: { groupNames: Map<numb
     void (async () => {
       let request = supabase
         .from('supporter_registrations')
-        .select('id,registration_type,full_name,phone,email,lga,ward,support_group_id,vin_status,created_at', { count: 'exact' })
+        .select('id,registration_type,full_name,phone,email,state,lga,ward,support_group_id,vin_status,created_at', { count: 'exact' })
       if (query.trim()) request = request.ilike('full_name', `%${query.trim()}%`)
       if (status !== 'all') request = request.eq('vin_status', status)
       const { data, error, count } = await request
@@ -379,24 +384,39 @@ function Supporters({ groupNames, refreshKey, onChange }: { groupNames: Map<numb
       <section className="admin-panel table-panel">
         <div className="admin-panel-heading table-toolbar">
           <div className="admin-search"><span>⌕</span><input aria-label="Search supporter names" value={query} onChange={(event) => { setPage(0); setQuery(event.target.value) }} placeholder="Search supporter name" /></div>
-          <select aria-label="Filter by VIN status" value={status} onChange={(event) => { setPage(0); setStatus(event.target.value as typeof status) }}>
-            <option value="all">All statuses</option>
-            <option value="verified">Verified</option>
-            <option value="pending">Pending</option>
-            <option value="not_verified">Not verified</option>
-          </select>
+          <SearchableOptionSelect
+            className="admin-filter-select"
+            ariaLabel="Filter by VIN status"
+            options={[
+              { value: 'all', label: 'All statuses' },
+              { value: 'verified', label: 'Verified' },
+              { value: 'pending', label: 'Pending' },
+              { value: 'not_verified', label: 'Not verified' },
+            ]}
+            value={status}
+            onChange={(value) => {
+              if (value === 'all' || value === 'verified' || value === 'pending' || value === 'not_verified') {
+                setPage(0)
+                setStatus(value)
+              }
+            }}
+            placeholder="All statuses"
+            searchLabel="Filter VIN statuses"
+            searchPlaceholder="Search status"
+          />
         </div>
         {errorMessage ? <p className="admin-data-error" role="alert">{errorMessage}</p> : loading ? <p className="admin-empty-state" role="status">Loading supporters…</p> : (
           <>
             <div className="admin-table-scroll">
               <table className="admin-table">
-                <thead><tr><th>Supporter</th><th>Type</th><th>Support group</th><th>LGA</th><th>Ward</th><th>Registered</th><th>VIN status</th><th>Details</th></tr></thead>
+                <thead><tr><th>Supporter</th><th>Type</th><th>Support group</th><th>State</th><th>LGA</th><th>Ward</th><th>Registered</th><th>VIN status</th><th>Details</th></tr></thead>
                 <tbody>
                   {rows.map((person) => (
                     <tr key={person.id}>
                       <td><span className="table-person"><span className="supporter-initial">{person.full_name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span><span><strong>{person.full_name}</strong><small>{maskedPhone(person.phone)}</small></span></span></td>
                       <td>{person.registration_type === 'group_member' ? 'Group member' : 'Individual'}</td>
                       <td>{person.support_group_id ? groupNames.get(person.support_group_id) || 'Group' : '—'}</td>
+                      <td>{person.state || '—'}</td>
                       <td>{person.lga}</td>
                       <td>{person.ward}</td>
                       <td>{formatDate(person.created_at)}</td>
@@ -424,6 +444,7 @@ function Supporters({ groupNames, refreshKey, onChange }: { groupNames: Map<numb
               <div><span>Phone number</span><strong>{selected.phone}</strong></div>
               <div><span>Email</span><strong>{selected.email || 'Not provided'}</strong></div>
               <div><span>Date of birth</span><strong>{selected.date_of_birth || 'Not stored'}</strong></div>
+              <div><span>State</span><strong>{selected.state || 'Not recorded'}</strong></div>
               <div><span>Local Government Area</span><strong>{selected.lga}</strong></div>
               <div><span>Ward</span><strong>{selected.ward}</strong></div>
               <div><span>Polling unit</span><strong>{selected.polling_unit || 'Not provided'}</strong></div>
@@ -444,14 +465,23 @@ function Supporters({ groupNames, refreshKey, onChange }: { groupNames: Map<numb
             </div>
             <div className="admin-detail-actions">
               <label>VIN status
-                <select value={selected.vin_status} disabled={savingMemberId === selected.id} onChange={(event) => {
-                  const value = event.target.value
+                <SearchableOptionSelect
+                  ariaLabel="VIN status"
+                  className="admin-action-select"
+                  options={[
+                    { value: 'pending', label: 'Pending' },
+                    { value: 'not_verified', label: 'Not verified' },
+                    { value: 'verified', label: 'Verified (provider-confirmed)', disabled: true },
+                  ]}
+                  value={selected.vin_status}
+                  disabled={savingMemberId === selected.id}
+                  onChange={(value) => {
                   if (value === 'pending' || value === 'not_verified') void updateVerificationStatus(value)
-                }}>
-                  <option value="pending">Pending</option>
-                  <option value="not_verified">Not verified</option>
-                  <option value="verified" disabled>Verified (provider-confirmed)</option>
-                </select>
+                  }}
+                  placeholder="Select VIN status"
+                  searchLabel="Search VIN statuses"
+                  searchPlaceholder="Search status"
+                />
               </label>
               <button className="admin-button danger" type="button" disabled={deletingMemberId === selected.id} onClick={() => void deleteSupporter()}>{deletingMemberId === selected.id ? 'Deleting…' : 'Delete supporter'}</button>
             </div>
@@ -483,7 +513,7 @@ function Groups({ refreshKey, onChange }: { refreshKey: number; onChange: () => 
     void (async () => {
       const { data, error, count } = await supabase
         .from('support_groups')
-        .select('id,name,lga,is_public,status,coordinator_name,coordinator_phone,contact_email,consent_at,consent_notice_version,created_at', { count: 'exact' })
+        .select('id,name,state,lga,is_public,status,coordinator_name,coordinator_phone,contact_email,consent_at,consent_notice_version,created_at', { count: 'exact' })
         .order('created_at', { ascending: false })
         .range(page * pageSize, (page + 1) * pageSize - 1)
       if (error) throw error
@@ -574,8 +604,8 @@ function Groups({ refreshKey, onChange }: { refreshKey: number; onChange: () => 
         {errorMessage ? <p className="admin-data-error" role="alert">{errorMessage}</p> : loading ? <p className="admin-empty-state" role="status">Loading support groups…</p> : groups.length === 0 ? <p className="admin-empty-state">No support groups have been registered yet.</p> : (
           <div className="admin-table-scroll">
             <table className="admin-table">
-              <thead><tr><th>Group</th><th>Coordinator</th><th>Phone</th><th>Email</th><th>LGA</th><th>Status</th><th>Public listing</th><th>Coordinator consent</th><th>Registered</th><th>Actions</th></tr></thead>
-              <tbody>{groups.map((group) => <tr key={group.id}><td><strong>{group.name}</strong></td><td>{group.coordinator_name || 'Not provided'}</td><td>{group.coordinator_phone || '—'}</td><td>{group.contact_email || '—'}</td><td>{group.lga}</td><td><span className={`table-status ${group.status === 'approved' ? 'verified' : group.status === 'pending' ? 'pending' : ''}`}>{group.status}</span></td><td><select aria-label={`Change public listing for ${group.name}`} value={group.is_public ? 'public' : 'private'} disabled={savingGroupId === group.id} onChange={(event) => void updateVisibility(group, event.target.value === 'public')}><option value="private">Private</option><option value="public">Public</option></select></td><td>{group.consent_notice_version} · {formatDate(group.consent_at)}</td><td>{formatDate(group.created_at)}</td><td><div className="admin-row-controls"><select aria-label={`Change status for ${group.name}`} value={group.status} disabled={savingGroupId === group.id} onChange={(event) => { const value = event.target.value; if (value === 'pending' || value === 'approved' || value === 'suspended') void updateStatus(group, value) }}><option value="pending">Pending</option><option value="approved">Approved</option><option value="suspended">Suspended</option></select><button className="admin-row-action danger-text" type="button" disabled={savingGroupId === group.id} onClick={() => void deleteGroup(group)}>Delete</button></div></td></tr>)}</tbody>
+              <thead><tr><th>Group</th><th>Coordinator</th><th>Phone</th><th>Email</th><th>State</th><th>LGA</th><th>Status</th><th>Public listing</th><th>Coordinator consent</th><th>Registered</th><th>Actions</th></tr></thead>
+              <tbody>{groups.map((group) => <tr key={group.id}><td><strong>{group.name}</strong></td><td>{group.coordinator_name || 'Not provided'}</td><td>{group.coordinator_phone || '—'}</td><td>{group.contact_email || '—'}</td><td>{group.state || '—'}</td><td>{group.lga}</td><td><span className={`table-status ${group.status === 'approved' ? 'verified' : group.status === 'pending' ? 'pending' : ''}`}>{group.status}</span></td><td><SearchableOptionSelect ariaLabel={`Change public listing for ${group.name}`} className="admin-action-select" options={[{ value: 'private', label: 'Private' }, { value: 'public', label: 'Public' }]} value={group.is_public ? 'public' : 'private'} disabled={savingGroupId === group.id} onChange={(value) => void updateVisibility(group, value === 'public')} placeholder="Visibility" searchLabel="Search visibility choices" searchPlaceholder="Search visibility" /></td><td>{group.consent_notice_version} · {formatDate(group.consent_at)}</td><td>{formatDate(group.created_at)}</td><td><div className="admin-row-controls"><SearchableOptionSelect ariaLabel={`Change status for ${group.name}`} className="admin-action-select" options={[{ value: 'pending', label: 'Pending' }, { value: 'approved', label: 'Approved' }, { value: 'suspended', label: 'Suspended' }]} value={group.status} disabled={savingGroupId === group.id} onChange={(value) => { if (value === 'pending' || value === 'approved' || value === 'suspended') void updateStatus(group, value) }} placeholder="Select group status" searchLabel="Search support-group statuses" searchPlaceholder="Search status" /><button className="admin-row-action danger-text" type="button" disabled={savingGroupId === group.id} onClick={() => void deleteGroup(group)}>Delete</button></div></td></tr>)}</tbody>
             </table>
           </div>
         )}
@@ -680,7 +710,7 @@ function Enquiries({ refreshKey, onChange }: { refreshKey: number; onChange: () 
             <article className="admin-panel admin-enquiry-card" key={item.id}>
               <header><div><span className="admin-eyebrow">{item.topic}</span><h2>{item.name}</h2><p>{item.phone} · {formatDate(item.created_at)}</p></div><span className={`table-status ${item.status === 'replied' ? 'verified' : 'pending'}`}>{item.status}</span></header>
               <p>{item.message}</p>
-              <footer className="admin-enquiry-actions"><label>Processing status<select aria-label={`Change status for enquiry from ${item.name}`} value={item.status} disabled={savingEnquiryId === item.id} onChange={(event) => { const value = event.target.value; if (value === 'new' || value === 'replied') void updateStatus(item, value) }}><option value="new">New</option><option value="replied">Replied</option></select></label><button className="admin-row-action danger-text" type="button" disabled={savingEnquiryId === item.id} onClick={() => void deleteEnquiry(item)}>Delete enquiry</button></footer>
+              <footer className="admin-enquiry-actions"><label>Processing status<SearchableOptionSelect ariaLabel={`Change status for enquiry from ${item.name}`} className="admin-action-select" options={[{ value: 'new', label: 'New' }, { value: 'replied', label: 'Replied' }]} value={item.status} disabled={savingEnquiryId === item.id} onChange={(value) => { if (value === 'new' || value === 'replied') void updateStatus(item, value) }} placeholder="Select enquiry status" searchLabel="Search enquiry statuses" searchPlaceholder="Search status" /></label><button className="admin-row-action danger-text" type="button" disabled={savingEnquiryId === item.id} onClick={() => void deleteEnquiry(item)}>Delete enquiry</button></footer>
             </article>
           ))}
         </div>
@@ -770,11 +800,11 @@ export default function DashboardPage() {
         supabase.from('supporter_registrations').select('id', { count: 'exact', head: true }).eq('vin_status', 'verified'),
         supabase.from('supporter_registrations').select('id', { count: 'exact', head: true }).eq('vin_status', 'pending'),
         supabase.from('supporter_registrations')
-          .select('id,registration_type,full_name,phone,email,lga,ward,support_group_id,vin_status,created_at')
+          .select('id,registration_type,full_name,phone,email,state,lga,ward,support_group_id,vin_status,created_at')
           .order('created_at', { ascending: false })
           .limit(8),
         supabase.from('support_groups')
-          .select('id,name,lga,is_public,status,coordinator_name,coordinator_phone,contact_email,consent_at,consent_notice_version,created_at')
+          .select('id,name,state,lga,is_public,status,coordinator_name,coordinator_phone,contact_email,consent_at,consent_notice_version,created_at')
           .order('created_at', { ascending: false })
           .limit(100),
       ])

@@ -286,3 +286,5 @@
   .group-notifications-dropdown { position:fixed; top:70px; right:12px; left:12px; width:auto; max-height:calc(100vh - 86px); overflow:auto; }
   .group-profile-dropdown { position:fixed; top:70px; right:12px; width:min(230px,calc(100vw - 24px)); }
 }
+.group-form .searchable-option { width:100%; min-width:0; }
+.group-form .searchable-option-trigger { height:43px; padding:0 11px; font:inherit; }

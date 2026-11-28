@@ -16,6 +16,7 @@ import heroCandidateTwo from '../assets/hero-candidate-2.webp'
 import heroCandidateThree from '../assets/hero-candidate-3.webp'
 import heroCandidateFour from '../assets/hero-candidate-4.webp'
 import MobileBottomNav from '../components/MobileBottomNav'
+import SearchableOptionSelect from '../components/SearchableOptionSelect'
 import './PublicSitePage.css'
 
 const aosEffects = ['fade-up', 'fade-left', 'fade-right', 'zoom-in'] as const
@@ -453,6 +454,7 @@ function EventsPage() {
 function ContactPage() {
   const [status, setStatus] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [topic, setTopic] = useState('General enquiry')
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const form = event.currentTarget
@@ -473,6 +475,7 @@ function ContactPage() {
       const result = await response.json().catch(() => null) as { error: string; message: string } | null
       if (!response.ok) throw new Error(result?.error || `Request failed (${response.status}). Please try again.`)
       setStatus(result?.message || 'Your enquiry has been received.')
+      setTopic('General enquiry')
       form.reset()
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Your enquiry could not be sent. Please try again.')
@@ -483,7 +486,7 @@ function ContactPage() {
   return (
     <main className="inner-page">
       <div className="inner-hero compact-hero"><span className="eyebrow">YOUR VOICE MATTERS</span><h1>Let's start<br /><em>a conversation.</em></h1><p>Share a question, suggestion or community concern with the campaign.</p></div>
-      <section className="contact-layout inner-content" data-aos={entranceEffects.contact}><form className="contact-form" onSubmit={submit}><label>Full name<input required name="name" placeholder="Your name" /></label><label>Phone number<input required name="phone" type="tel" placeholder="+234" /></label><label>Topic<select name="topic"><option>General enquiry</option><option>Suggestion</option><option>Community concern</option><option>Privacy or data rights request</option></select></label><label>Message<textarea required name="message" rows={5} placeholder="How can we help? Do not include your VIN or password." /></label>{status && <p className={`form-message ${status.includes('received') ? 'success' : ''}`} role="status">{status}</p>}<button className="button button-primary" type="submit" disabled={submitting}>{submitting ? 'Sending…' : 'Send enquiry'}</button></form><aside className="contact-aside"><span className="section-kicker">GET IN TOUCH</span><h2>We want to<br /><em>hear from you.</em></h2><p>Use this form to share a general enquiry, an idea, a community concern or a privacy/data-rights request. Never send a VIN or password in a message.</p><div className="contact-rule" /><span className="section-kicker">FOLLOW THE CAMPAIGN</span><p>Official social media links will be added when confirmed.</p></aside></section>
+      <section className="contact-layout inner-content" data-aos={entranceEffects.contact}><form className="contact-form" onSubmit={submit}><label>Full name<input required name="name" placeholder="Your name" /></label><label>Phone number<input required name="phone" type="tel" placeholder="+234" /></label><label>Topic<SearchableOptionSelect name="topic" value={topic} onChange={setTopic} options={[{ value: 'General enquiry', label: 'General enquiry' }, { value: 'Suggestion', label: 'Suggestion' }, { value: 'Community concern', label: 'Community concern' }, { value: 'Privacy or data rights request', label: 'Privacy or data rights request' }]} placeholder="Select topic" searchLabel="Search enquiry topics" searchPlaceholder="Search topic" /></label><label>Message<textarea required name="message" rows={5} placeholder="How can we help? Do not include your VIN or password." /></label>{status && <p className={`form-message ${status.includes('received') ? 'success' : ''}`} role="status">{status}</p>}<button className="button button-primary" type="submit" disabled={submitting}>{submitting ? 'Sending…' : 'Send enquiry'}</button></form><aside className="contact-aside"><span className="section-kicker">GET IN TOUCH</span><h2>We want to<br /><em>hear from you.</em></h2><p>Use this form to share a general enquiry, an idea, a community concern or a privacy/data-rights request. Never send a VIN or password in a message.</p><div className="contact-rule" /><span className="section-kicker">FOLLOW THE CAMPAIGN</span><p>Official social media links will be added when confirmed.</p></aside></section>
     </main>
   )
 }
