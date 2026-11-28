@@ -4,6 +4,9 @@ import MobileBottomNav from '../components/MobileBottomNav'
 import SearchableLgaSelect from '../components/SearchableLgaSelect'
 import { lgas, wards } from '../campaignData'
 import { supabase } from '../supabase'
+import adcLogo from '../assets/adc-logo-from-campaign-poster.png'
+import akwaIbomLogo from '../assets/akwa-ibom-state-emblem.png'
+import leaderPortrait from '../assets/hero-candidate-1.webp'
 import './SupportGroupDashboardPage.css'
 
 type SupportGroup = {
@@ -273,14 +276,35 @@ function GroupMemberDetailView({
     <section className="group-panel group-member-details-panel">
       <button className="group-detail-back" type="button" onClick={onBack}>← Back to group members</button>
       <div className="group-member-detail-card">
-        <div className="group-member-detail-profile">
-          {member.photo_url
-            ? <img src={member.photo_url} alt={`${member.full_name} profile`} />
-            : <span aria-hidden="true">{member.full_name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span>}
-          <h2>{member.full_name}</h2>
-          <p>{member.lga}, {member.ward}</p>
-          <small>Member since {new Date(member.created_at).toLocaleDateString('en-NG')}</small>
-        </div>
+        <aside className="group-member-id-card" aria-label="Support-group member identity card">
+          <div className="group-member-id-header">
+            <img className="group-member-id-adc" src={adcLogo} alt="ADC" />
+            <div>
+              <span>SUPPORT-GROUP</span>
+              <strong>IDENTITY CARD</strong>
+            </div>
+            <img className="group-member-id-state" src={akwaIbomLogo} alt="Akwa Ibom State" />
+          </div>
+          <div className="group-member-id-body">
+            <div className="group-member-id-photo">
+              {member.photo_url
+                ? <img src={member.photo_url} alt={`${member.full_name} profile`} />
+                : <span aria-hidden="true">{member.full_name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span>}
+              <img className="group-member-id-leader" src={leaderPortrait} alt="Campaign leader" />
+            </div>
+            <div className="group-member-id-info">
+              <span>MEMBER ID</span>
+              <strong>SG-{String(member.id).padStart(6, '0')}</strong>
+              <h2>{member.full_name}</h2>
+              <p>{member.lga} · {member.ward}</p>
+              <p className="group-member-id-phone">{maskPhone(member.phone)}</p>
+            </div>
+          </div>
+          <div className="group-member-id-footer">
+            <span>AKPANUDOEDHE FOR AKWA IBOM</span>
+            <span className="group-member-id-status">{member.vin_status === 'verified' ? 'VERIFIED MEMBER' : 'MEMBER RECORD'}</span>
+          </div>
+        </aside>
         <div className="group-member-detail-content">
           <span className="eyebrow">MEMBER DETAILS</span>
           <h2>Personal and account information</h2>
