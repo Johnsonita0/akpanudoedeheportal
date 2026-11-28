@@ -184,7 +184,9 @@ function validateMemberDraft(draft: GroupMemberDraft, basicImport = false): stri
   if (draft.full_name.length < 2 || draft.full_name.length > 120) errors.push('Name must be 2–120 characters.')
   if (!/^[+0-9 ().-]{7,30}$/.test(draft.phone) || phoneDigits.length < 7) errors.push('Phone number is invalid.')
   if (draft.email && (draft.email.length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(draft.email))) errors.push('Email address is invalid.')
-  if (!lgas.includes(draft.lga)) errors.push('Local Government Area is invalid.')
+  if (basicImport
+    ? draft.lga.trim().length < 2 || draft.lga.length > 100
+    : !lgas.includes(draft.lga)) errors.push('Local Government Area is invalid.')
   if (basicImport ? draft.ward.length < 1 || draft.ward.length > 100 : !wards.includes(draft.ward)) errors.push('Ward is invalid.')
   if (basicImport) {
     if (draft.residential_address.length < 2 || draft.residential_address.length > 500) errors.push('Residential address must be 2–500 characters.')
