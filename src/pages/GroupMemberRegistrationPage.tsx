@@ -258,7 +258,7 @@ export function MemberVerificationPage({ token }: { token: string }) {
     let active = true
     const verify = async () => {
       try {
-        const response = await fetch(`${apiUrl}/api/member-verifications/${encodeURIComponent(token)}`, {
+        const response = await fetch(`${apiUrl}/api/member-verifications?token=${encodeURIComponent(token)}`, {
           headers: { Accept: 'application/json' },
         })
         const result: unknown = await response.json()
