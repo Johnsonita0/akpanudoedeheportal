@@ -744,7 +744,7 @@ export default function SupportGroupDashboardPage() {
       setImportConsent(false)
       setImportProgress(0)
       setImportMembersOpen(true)
-      notify(`${drafts.length} member row${drafts.length === 1 ? '' : 's'} loaded. Attach a photo to each row before importing.`, 'info')
+      notify(`${drafts.length} member row${drafts.length === 1 ? '' : 's'} loaded. Photos are optional and can be added later.`, 'info')
     } catch (error) {
       console.error('Could not read the group member CSV:', error)
       notify(error instanceof Error ? error.message : 'The CSV file could not be read. Download the template and try again.', 'error')
@@ -786,7 +786,6 @@ export default function SupportGroupDashboardPage() {
     let refreshFailed = false
     for (let index = 0; index < readyRows.length; index += 1) {
       const row = readyRows[index]
-      if (!row.photo) continue
       try {
         await saveGroupMemberRecord(row.draft, row.photo, true)
         importedCount += 1
@@ -1250,7 +1249,7 @@ export default function SupportGroupDashboardPage() {
                       <div className="group-import-row-summary">
                         <strong>Row {row.rowNumber}: {row.draft.full_name || 'Name missing'}</strong>
                         <span>{row.draft.state ? `${row.draft.state} · ` : ''}{row.draft.lga || 'LGA missing'}{row.draft.ward ? ` · ${row.draft.ward}` : ''}</span>
-                        {row.imported ? <small>Imported</small> : row.errors.length > 0 ? <small className="group-import-error">{row.errors.join(' ')}</small> : <small>Ready for photo</small>}
+                        {row.imported ? <small>Imported</small> : row.errors.length > 0 ? <small className="group-import-error">{row.errors.join(' ')}</small> : <small>Ready to import</small>}
                       </div>
                                       {!row.imported && (
                                         <label className="group-import-photo">Member photo <span>(optional — can be added later)</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={importingMembers} onChange={(event) => {
@@ -1261,7 +1260,7 @@ export default function SupportGroupDashboardPage() {
                     </article>
                   ))}
                 </div>
-                <label className="group-import-consent"><input type="checkbox" checked={importConsent} disabled={importingMembers} onChange={(event) => setImportConsent(event.target.checked)} /><span>I confirm that every person listed in this CSV has personally agreed to share the information and photo provided, and has read the <a href="/privacy" target="_blank" rel="noreferrer">privacy notice</a>.</span></label>
+                <label className="group-import-consent"><input type="checkbox" checked={importConsent} disabled={importingMembers} onChange={(event) => setImportConsent(event.target.checked)} /><span>I confirm that every person listed in this CSV has personally agreed to share the information provided and any photo attached, and has read the <a href="/privacy" target="_blank" rel="noreferrer">privacy notice</a>.</span></label>
                 {importingMembers && <p className="group-message" role="status">Importing row {importProgress} of {importTotal}…</p>}
                 <button className="button button-primary group-import-submit" type="button" disabled={importingMembers || !importConsent || importRows.every((row) => row.imported)} onClick={() => void importGroupMembers()}>
                   {importingMembers ? 'Importing…' : `Import ${importRows.filter((row) => !row.imported).length} member${importRows.filter((row) => !row.imported).length === 1 ? '' : 's'}`}
