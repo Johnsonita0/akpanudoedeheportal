@@ -260,9 +260,13 @@ function maskPhone(value: string): string {
 function GroupMemberDetailView({
   member,
   onBack,
+  onUploadPhoto,
+  uploadingPhoto,
 }: {
   member: GroupMemberDetails
   onBack: () => void
+  onUploadPhoto: (photo: File) => void
+  uploadingPhoto: boolean
 }) {
   const detailItems: Array<[string, string | null]> = [
     ['Phone number', maskPhone(member.phone)],
@@ -309,6 +313,19 @@ function GroupMemberDetailView({
             <span>AKPANUDOEDHE FOR AKWA IBOM</span>
             <span className="group-member-id-status">{member.vin_status === 'verified' ? 'VERIFIED MEMBER' : 'MEMBER RECORD'}</span>
           </div>
+          <label className="group-member-photo-action">
+            {uploadingPhoto ? 'Saving photo…' : member.photo_url ? 'Change member photo' : 'Add member photo'}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              disabled={uploadingPhoto}
+              onChange={(event) => {
+                const photo = event.target.files?.[0]
+                if (photo) onUploadPhoto(photo)
+                event.currentTarget.value = ''
+              }}
+            />
+          </label>
         </aside>
         <div className="group-member-detail-content">
           <span className="eyebrow">MEMBER DETAILS</span>
@@ -343,6 +360,7 @@ export default function SupportGroupDashboardPage() {
   const [memberConsent, setMemberConsent] = useState<boolean | null>(null)
   const [member, setMember] = useState<GroupMemberDraft>(emptyGroupMember)
   const [memberPhoto, setMemberPhoto] = useState<File | null>(null)
+  const [uploadingMemberPhoto, setUploadingMemberPhoto] = useState(false)
   const [addMemberOpen, setAddMemberOpen] = useState(false)
   const [importMembersOpen, setImportMembersOpen] = useState(false)
   const [importRows, setImportRows] = useState<GroupMemberImportRow[]>([])
@@ -575,28 +593,30 @@ export default function SupportGroupDashboardPage() {
     setToast(null)
   }
 
-  const saveGroupMemberRecord = async (draft: GroupMemberDraft, photo: File, basicImport = false) => {
+  const saveGroupMemberRecord = async (draft: GroupMemberDraft, photo: File | null, basicImport = false) => {
     if (!supabase || !group || !session) throw new Error('Group session is unavailable.')
-    const extensions: Record<string, string> = {
-      'image/jpeg': 'jpg',
-      'image/png': 'png',
-      'image/webp': 'webp',
-    }
-    const extension = extensions[photo.type]
-    if (!extension || photo.size > 5 * 1024 * 1024) {
-      throw new Error('Choose a JPG, PNG or WebP member photo smaller than 5 MB.')
-    }
-
-    const photoPath = `${session.user.id}/${group.id}/${crypto.randomUUID()}.${extension}`
+    let photoPath: string | null = null
     let photoUploaded = false
     let memberSaved = false
     try {
-      const photoBucket = basicImport ? 'support-group-member-import-photos' : 'support-group-member-photos'
-      const { error: uploadError } = await supabase.storage
-        .from(photoBucket)
-        .upload(photoPath, photo, { contentType: photo.type, upsert: false })
-      if (uploadError) throw uploadError
-      photoUploaded = true
+      if (photo) {
+        const extensions: Record<string, string> = {
+          'image/jpeg': 'jpg',
+          'image/png': 'png',
+          'image/webp': 'webp',
+        }
+        const extension = extensions[photo.type]
+        if (!extension || photo.size > 5 * 1024 * 1024) {
+          throw new Error('Choose a JPG, PNG or WebP member photo smaller than 5 MB.')
+        }
+        photoPath = `${session.user.id}/${group.id}/${crypto.randomUUID()}.${extension}`
+        const photoBucket = basicImport ? 'support-group-member-import-photos' : 'support-group-member-photos'
+        const { error: uploadError } = await supabase.storage
+          .from(photoBucket)
+          .upload(photoPath, photo, { contentType: photo.type, upsert: false })
+        if (uploadError) throw uploadError
+        photoUploaded = true
+      }
 
       const rpcName = basicImport
         ? 'register_basic_support_group_member'
@@ -636,7 +656,7 @@ export default function SupportGroupDashboardPage() {
       if (error) throw error
       memberSaved = true
     } catch (error) {
-      if (photoUploaded && !memberSaved) {
+      if (photoUploaded && !memberSaved && photoPath) {
         const { error: cleanupError } = await supabase.storage
           .from(basicImport ? 'support-group-member-import-photos' : 'support-group-member-photos')
           .remove([photoPath])
@@ -654,11 +674,6 @@ export default function SupportGroupDashboardPage() {
       notify('Confirm that this member has personally agreed before submitting their information.', 'error')
       return
     }
-    if (!memberPhoto) {
-      notify('Upload a member photo before submitting the registration.', 'error')
-      return
-    }
-
     setSubmitting(true)
     setToast(null)
     let memberSaved = false
@@ -732,8 +747,7 @@ export default function SupportGroupDashboardPage() {
 
     const readyRows = pending.map((row) => {
       const errors = [...validateMemberDraft(row.draft, true)]
-      if (!row.photo) errors.push('Attach a member photo.')
-      else if (!['image/jpeg', 'image/png', 'image/webp'].includes(row.photo.type) || row.photo.size > 5 * 1024 * 1024) {
+      if (row.photo && (!['image/jpeg', 'image/png', 'image/webp'].includes(row.photo.type) || row.photo.size > 5 * 1024 * 1024)) {
         errors.push('Photo must be JPG, PNG or WebP under 5 MB.')
       }
       return { ...row, errors }
@@ -796,6 +810,54 @@ export default function SupportGroupDashboardPage() {
       setImportRows([])
       setImportConsent(false)
       notify(`${importedCount} member${importedCount === 1 ? '' : 's'} imported successfully.`, 'success')
+    }
+  }
+
+  const updateMemberPhoto = async (targetMember: GroupMemberDetails, photo: File) => {
+    if (!supabase || !group || !session) return
+    const extensions: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/webp': 'webp',
+    }
+    const extension = extensions[photo.type]
+    if (!extension || photo.size > 5 * 1024 * 1024) {
+      notify('Choose a JPG, PNG or WebP member photo smaller than 5 MB.', 'error')
+      return
+    }
+
+    setUploadingMemberPhoto(true)
+    setToast(null)
+    const photoPath = `${session.user.id}/${group.id}/${crypto.randomUUID()}.${extension}`
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('support-group-member-import-photos')
+        .upload(photoPath, photo, { contentType: photo.type, upsert: false })
+      if (uploadError) throw uploadError
+
+      const { error: updateError } = await supabase.rpc('update_group_member_photo', {
+        p_group_id: group.id,
+        p_registration_id: targetMember.id,
+        p_photo_path: photoPath,
+      })
+      if (updateError) {
+        const { error: cleanupError } = await supabase.storage
+          .from('support-group-member-import-photos')
+          .remove([photoPath])
+        if (cleanupError) console.error('Could not remove the unused replacement photo:', cleanupError.message)
+        throw updateError
+      }
+
+      const { data: publicPhoto } = supabase.storage
+        .from('support-group-member-import-photos')
+        .getPublicUrl(photoPath)
+      setSelectedMember({ ...targetMember, photo_path: photoPath, photo_url: publicPhoto.publicUrl })
+      notify('Member photo saved.', 'success')
+    } catch (error) {
+      console.error('Could not save group member photo:', error)
+      notify('The member photo could not be saved. Check the latest photo-bucket migration and try again.', 'error')
+    } finally {
+      setUploadingMemberPhoto(false)
     }
   }
 
@@ -935,7 +997,12 @@ export default function SupportGroupDashboardPage() {
             <div><span className="eyebrow">SUPPORT-GROUP DASHBOARD · PREVIEW</span><h1>Sample Support Group</h1><p>Uyo Local Government Area</p></div>
           </section>
           <p className="group-review-status">Development preview using synthetic member data only.</p>
-          <GroupMemberDetailView member={previewMember} onBack={() => window.location.assign('/group-dashboard')} />
+          <GroupMemberDetailView
+            member={previewMember}
+            onBack={() => window.location.assign('/group-dashboard')}
+            onUploadPhoto={() => undefined}
+            uploadingPhoto={false}
+          />
         </main>
         <MobileBottomNav
           items={[
@@ -1060,7 +1127,12 @@ export default function SupportGroupDashboardPage() {
               <article className="group-panel group-count-panel" id="group-overview"><span>MEMBER OVERVIEW</span><strong>{members.length}</strong><p>Registered members in this support group.</p></article>
             </section>
             {selectedMember ? (
-              <GroupMemberDetailView member={selectedMember} onBack={() => setSelectedMember(null)} />
+              <GroupMemberDetailView
+                member={selectedMember}
+                onBack={() => setSelectedMember(null)}
+                onUploadPhoto={(photo) => void updateMemberPhoto(selectedMember, photo)}
+                uploadingPhoto={uploadingMemberPhoto}
+              />
             ) : (
               <>
                 <section className="group-panel group-members-panel" id="group-members">
@@ -1126,7 +1198,7 @@ export default function SupportGroupDashboardPage() {
               <label>Bank *<input required maxLength={120} value={member.bank_name} onChange={(event) => setMember({ ...member, bank_name: event.target.value })} /></label>
               <label>Residential address *<input required maxLength={500} value={member.residential_address} onChange={(event) => setMember({ ...member, residential_address: event.target.value })} /></label>
               <label>Polling unit address *<input required maxLength={500} value={member.polling_unit_address} onChange={(event) => setMember({ ...member, polling_unit_address: event.target.value })} /></label>
-              <label className="group-member-photo-field">Member photo *<input required type="file" accept="image/png,image/jpeg,image/webp" disabled={submitting} onChange={(event) => setMemberPhoto(event.target.files?.[0] ?? null)} /><span>Private to your group. JPG, PNG or WebP, max 5 MB.</span></label>
+              <label className="group-member-photo-field">Member photo <span>(optional — can be added later)</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={submitting} onChange={(event) => setMemberPhoto(event.target.files?.[0] ?? null)} /><span>JPG, PNG or WebP, max 5 MB. You can also add a photo from the member details page later.</span></label>
               <fieldset className="group-member-consent">
                 <legend>Member consent *</legend>
                 <label><input required type="radio" name="member_consent" checked={memberConsent === true} onChange={() => setMemberConsent(true)} /><span>I confirm this member personally agreed to share their photo, contact and location details, VIN, NIN and bank details with the campaign for group membership records, and has read the <a href="/privacy" target="_blank" rel="noreferrer">privacy notice</a>.</span></label>
@@ -1149,7 +1221,7 @@ export default function SupportGroupDashboardPage() {
               <button className="button button-outline" type="button" onClick={downloadMemberCsvTemplate}>Download CSV template</button>
               <label className="button button-outline group-csv-file-button">Choose populated CSV<input type="file" accept=".csv,text/csv" disabled={importingMembers} onChange={(event) => { void readMemberCsv(event.target.files?.[0]); event.currentTarget.value = '' }} /></label>
             </div>
-            <p className="group-import-note">Keep the template column headings unchanged. Email is optional; all other columns are required. Every row needs a separate JPG, PNG or WebP member photo (max 5 MB).</p>
+            <p className="group-import-note">Keep the template column headings unchanged. Email is optional; other member fields are required. Photos are optional and can be added later from each member's details.</p>
             {importRows.length > 0 && (
               <>
                 <div className="group-import-row-list">
@@ -1160,8 +1232,8 @@ export default function SupportGroupDashboardPage() {
                         <span>{row.draft.lga || 'LGA missing'}{row.draft.ward ? ` · ${row.draft.ward}` : ''}</span>
                         {row.imported ? <small>Imported</small> : row.errors.length > 0 ? <small className="group-import-error">{row.errors.join(' ')}</small> : <small>Ready for photo</small>}
                       </div>
-                      {!row.imported && (
-                        <label className="group-import-photo">Member photo *<input type="file" accept="image/png,image/jpeg,image/webp" disabled={importingMembers} onChange={(event) => {
+                                      {!row.imported && (
+                                        <label className="group-import-photo">Member photo <span>(optional — can be added later)</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={importingMembers} onChange={(event) => {
                           const photo = event.target.files?.[0] ?? null
                           setImportRows((rows) => rows.map((item) => item.rowNumber === row.rowNumber ? { ...item, photo, errors: validateMemberDraft(item.draft, true) } : item))
                         }} />{row.photo && <span>{row.photo.name}</span>}</label>

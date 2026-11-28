@@ -94,6 +94,11 @@
 .group-member-id-footer { min-height:38px; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 10px; border-top:4px solid #e58a24; background:linear-gradient(90deg,#08756b,#0f5c5c); color:#fff; }
 .group-member-id-footer>span:first-child { max-width:150px; font-size:7px; font-weight:750; letter-spacing:.7px; }
 .group-member-id-status { padding:4px 6px; border:1px solid rgba(255,255,255,.6); border-radius:20px; font-size:6px; font-weight:750; white-space:nowrap; }
+.group-member-photo-action { position:relative; min-height:36px; display:flex; align-items:center; justify-content:center; margin:0; border-top:1px solid var(--line); background:#fff; color:var(--teal); font-size:9px; font-weight:750; cursor:pointer; }
+.group-member-photo-action:hover { background:#f2f7f1; }
+.group-member-photo-action:focus-within { outline:2px solid var(--teal); outline-offset:-2px; }
+.group-member-photo-action input { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+.group-member-photo-action input:disabled { cursor:wait; }
 .group-member-detail-profile { text-align:center; }
 .group-member-detail-profile img,.group-member-detail-profile>span { width:100%; aspect-ratio:4/4.7; display:grid; place-items:center; border-radius:6px; background:#e9eee8; color:var(--teal); object-fit:cover; font:400 56px Georgia,serif; }
 .group-member-detail-profile h2 { margin:16px 0 5px; font:400 23px/1.2 Georgia,serif; }
